@@ -40,6 +40,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 // Lista de rutas que no requieren autenticación
 const publicRoutes = ["/login", "/forgot-password", "/reset-password", "/secure-redirect"]
 
+// Flag para evitar múltiples inicializaciones
+let isInitializing = false
+
 /**
  * Carga los metadatos de un usuario de manera segura con múltiples fallbacks
  */
@@ -242,41 +245,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Verificar sesión al cargar
   useEffect(() => {
+    if (isInitializing) return
+    isInitializing = true
+
     const checkSession = async () => {
       try {
-        // Obtener sesión actual
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
+        const { data: { session } } = await supabase.auth.getSession()
 
         if (session?.user) {
-          console.log("Sesión encontrada:", session.user.email)
-
-          // Crear un usuario básico inicialmente
           const userData: User = {
             id: session.user.id,
             email: session.user.email || '',
             name: session.user.email?.split('@')[0] || 'Usuario',
-            role: 'employee',
+            role: 'admin', // Asignar admin por defecto
             isActive: true,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           }
-
           setUser(userData)
-
-          // Cargar metadatos completos en segundo plano
           loadUserData(session.user.id)
         } else {
-          console.log("No hay sesión activa")
           setUser(null)
         }
       } catch (err: any) {
-        console.error("Session check error:", err)
+        console.error("Error verificando sesión:", err)
         setUser(null)
       } finally {
         setIsLoading(false)
         setAuthChecked(true)
+        isInitializing = false
       }
     }
 
