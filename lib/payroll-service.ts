@@ -61,7 +61,7 @@ export const generatePayrollsBatch = async (
 
   // Obtener empleados en batch
   const employees = await getEmployeesBatch(employeeIds)
-  
+
   // Preparar datos para inserción en batch
   const payrollsToInsert = employees.map((employee: any) => ({
     employee_id: employee.id,
@@ -125,7 +125,7 @@ export const getPayrollsWithCache = async (
 ): Promise<any[]> => {
   const cacheKey = `${month}-${year}-${includePaid}`
   const now = Date.now()
-  
+
   // Verificar cache
   if (cache.payrolls.has(cacheKey) && 
       cache.lastFetch.has(cacheKey) && 
@@ -406,16 +406,12 @@ export class PayrollService {
           ? Number(employee.attendance_bonus || 0)
           : 0
 
-        console.log(
-          `Valores base: Salario Base=${baseSalary}, Banco=${bankSalary}, Mano=${handSalary}, Bono=${attendanceBonus}`,
-        )
+        console.log(`Valores base: Salario Base=${baseSalary}, Banco=${bankSalary}, Mano=${handSalary}, Bono=${attendanceBonus}`)
 
         // Calcular deducciones y adiciones basadas en asistencias
         const { deductions, additions, details } = this.calculateAdjustmentsFromAttendances(attendances, baseSalary)
 
-        console.log(
-          `Cálculos realizados: Deducciones=${deductions}, Adiciones=${additions}, Detalles=${details.length}`,
-        )
+        console.log(`Cálculos realizados: Deducciones=${deductions}, Adiciones=${additions}, Detalles=${details.length}`)
 
         // NUEVA LÓGICA: Calcular salarios finales según la fórmula correcta
         // final_hand_salary = hand_salary + additions - deductions + bono_presentismo
@@ -674,16 +670,12 @@ export class PayrollService {
           ? Number(employee.attendance_bonus || 0)
           : 0
 
-        console.log(
-          `Valores base: Salario Base=${baseSalary}, Banco=${bankSalary}, Mano=${handSalary}, Bono=${attendanceBonus}`,
-        )
+        console.log(`Valores base: Salario Base=${baseSalary}, Banco=${bankSalary}, Mano=${handSalary}, Bono=${attendanceBonus}`)
 
         // Calcular deducciones y adiciones basadas en asistencias
         const { deductions, additions, details } = this.calculateAdjustmentsFromAttendances(attendances, baseSalary)
 
-        console.log(
-          `Cálculos realizados: Deducciones=${deductions}, Adiciones=${additions}, Detalles=${details.length}`,
-        )
+        console.log(`Cálculos realizados: Deducciones=${deductions}, Adiciones=${additions}, Detalles=${details.length}`)
 
         // NUEVA LÓGICA: Calcular salarios finales según la fórmula correcta
         // final_hand_salary = hand_salary + additions - deductions + bono_presentismo
