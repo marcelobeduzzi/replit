@@ -107,6 +107,9 @@ export class PayrollService extends DatabaseServiceBase {
         has_attendance_bonus: hasAttendanceBonus,
         final_hand_salary: finalHandSalary,
         total_salary: totalSalary,
+        // NO incluir is_paid ya que es columna generada
+        is_paid_hand: false,
+        is_paid_bank: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
