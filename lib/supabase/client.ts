@@ -1,20 +1,16 @@
-import { createClient } from "@supabase/supabase-js"
+import { createBrowserClient } from '@supabase/ssr'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("Variables de entorno de Supabase no definidas")
-  throw new Error("Configuración de Supabase incompleta")
+// Crear una sola instancia global
+let supabaseInstance: ReturnType<typeof createBrowserClient> | null = null
+
+export function getSupabase() {
+  if (!supabaseInstance) {
+    supabaseInstance = createBrowserClient(supabaseUrl, supabaseAnonKey)
+  }
+  return supabaseInstance
 }
 
-// Crear cliente único de Supabase
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-})
-export { createClient }
-export default supabase
+export const supabase = getSupabase()

@@ -238,7 +238,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [supervisorsLoaded])
 
-  // Verificar sesión al cargar
+  // Verificar sesión al cargar - versión simplificada
   useEffect(() => {
     if (isInitializing) return
     isInitializing = true
@@ -252,13 +252,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             id: session.user.id,
             email: session.user.email || '',
             name: session.user.email?.split('@')[0] || 'Usuario',
-            role: 'admin', // Asignar admin por defecto
+            role: 'admin',
             isActive: true,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           }
           setUser(userData)
-          loadUserData(session.user.id)
         } else {
           setUser(null)
         }

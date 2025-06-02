@@ -5,7 +5,7 @@ import "./globals.css"
 import "react-datepicker/dist/react-datepicker.css"
 import { AuthProvider } from "@/lib/auth-context"
 import { ThemeProvider } from "@/components/theme-provider"
-import { AuthInitializer } from "@/components/AuthInitializer"
+// AuthInitializer removido para evitar múltiples instancias de GoTrueClient
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -35,9 +35,8 @@ export default function RootLayout({
           defaultTheme="light" 
           enableSystem 
           disableTransitionOnChange
-          suppressHydrationWarning
         >
-          <AuthProvider suppressHydrationWarning>
+          <AuthProvider>
             {children}
           </AuthProvider>
         </ThemeProvider>
