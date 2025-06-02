@@ -3,37 +3,21 @@ import { dbService } from "@/lib/db-service"
 import { supabase } from './supabase/client'
 import type { Employee, Payroll } from '@/types'
 
-// Sistema de logging personalizado para evitar errores con console
+// Sistema de logging seguro para navegador y servidor
 const logger = {
   log: (...args: any[]) => {
-    try {
-      if (typeof console !== 'undefined' && console.log) {
-        console.log(...args)
-      }
-    } catch (error) {
-      // Silenciar errores de logging para no interrumpir la ejecución
+    if (typeof console !== 'undefined' && console.log) {
+      console.log(...args)
     }
   },
   error: (...args: any[]) => {
-    try {
-      if (typeof window !== 'undefined' && window.console && typeof window.console.error === 'function') {
-        window.console.error(...args)
-      } else if (typeof console !== 'undefined' && typeof console.error === 'function') {
-        console.error(...args)
-      }
-    } catch (error) {
-      // Silenciar errores de logging para no interrumpir la ejecución
+    if (typeof console !== 'undefined' && console.error) {
+      console.error(...args)
     }
   },
   warn: (...args: any[]) => {
-    try {
-      if (typeof window !== 'undefined' && window.console && typeof window.console.warn === 'function') {
-        window.console.warn(...args)
-      } else if (typeof console !== 'undefined' && typeof console.warn === 'function') {
-        console.warn(...args)
-      }
-    } catch (error) {
-      // Silenciar errores de logging para no interrumpir la ejecución
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn(...args)
     }
   }
 }
