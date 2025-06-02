@@ -200,11 +200,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Función para refrescar la sesión
   const refreshSession = async () => {
     try {
+      console.log("Intentando refrescar sesión...")
+      
       // Verificar si hay una sesión antes de intentar refrescar
-      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError) {
+        console.error("Error al verificar sesión actual:", sessionError)
+        return false
+      }
       
       if (!currentSession) {
-        console.log("No session available to refresh")
+        console.log("No hay sesión disponible para refrescar")
         return false
       }
 
@@ -212,27 +219,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) {
         // Si es un error de sesión faltante, no es grave
         if (error.message.includes('Auth session missing')) {
-          console.log("Session missing during refresh, user may have logged out")
+          console.log("Sesión faltante durante el refresco, el usuario puede haber cerrado sesión")
           return false
         }
-        console.error("Error refreshing session:", error)
+        console.error("Error al refrescar sesión:", error)
         return false
       }
 
       if (data.session) {
-        console.log("Session refreshed successfully")
+        console.log("Sesión refrescada exitosamente")
+        // Actualizar datos del usuario si es necesario
+        if (data.session.user && user?.id === data.session.user.id) {
+          await loadUserData(data.session.user.id)
+        }
         return true
       } else {
-        console.log("No session to refresh")
+        console.log("No hay sesión para refrescar")
         return false
       }
     } catch (err: any) {
       // Manejar errores de sesión faltante de manera silenciosa
       if (err.message?.includes('Auth session missing')) {
-        console.log("Session missing during refresh, user may have logged out")
+        console.log("Sesión faltante durante el refresco, el usuario puede haber cerrado sesión")
         return false
       }
-      console.error("Session refresh error:", err)
+      console.error("Error durante el refresco de sesión:", err)
       return false
     }
   }
@@ -262,20 +273,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const checkSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        console.log("Verificando sesión inicial...")
+        const { data: { session }, error } = await supabase.auth.getSession()
 
-        if (session?.user) {
-          const userData: User = {
-            id: session.user.id,
-            email: session.user.email || '',
-            name: session.user.email?.split('@')[0] || 'Usuario',
-            role: (session.user.user_metadata?.role as UserRole) || 'admin',
-            isActive: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+        if (error) {
+          console.error("Error al obtener sesión:", error)
+          setUser(null)
+        } else if (session?.user) {
+          console.log("Sesión encontrada para:", session.user.email)
+          
+          // Cargar metadatos del usuario
+          try {
+            const metadata = await loadUserMetadata(session.user.id)
+            const userData: User = {
+              id: session.user.id,
+              email: session.user.email || metadata.email || '',
+              name: metadata.first_name 
+                ? `${metadata.first_name} ${metadata.last_name || ""}`.trim()
+                : session.user.email?.split('@')[0] || 'Usuario',
+              role: metadata.role || 'admin',
+              isActive: Boolean(metadata.isActive ?? true),
+              createdAt: metadata.createdAt || new Date().toISOString(),
+              updatedAt: metadata.updatedAt || new Date().toISOString(),
+            }
+            console.log("Usuario cargado con metadatos:", userData)
+            setUser(userData)
+          } catch (metadataError) {
+            console.error("Error al cargar metadatos, usando datos básicos:", metadataError)
+            // Si falla la carga de metadatos, usar datos básicos
+            const userData: User = {
+              id: session.user.id,
+              email: session.user.email || '',
+              name: session.user.email?.split('@')[0] || 'Usuario',
+              role: (session.user.user_metadata?.role as UserRole) || 'admin',
+              isActive: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+            setUser(userData)
           }
-          setUser(userData)
         } else {
+          console.log("No hay sesión activa")
           setUser(null)
         }
       } catch (err: any) {
@@ -294,13 +332,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
-      console.log("Auth state changed:", event)
+      console.log("Auth state changed:", event, session ? `User: ${session.user?.email}` : 'No session')
 
       if (event === "SIGNED_IN" && session?.user) {
+        console.log("Usuario ha iniciado sesión:", session.user.email)
         // Cargar metadatos inmediatamente
         try {
           const metadata = await loadUserMetadata(session.user.id)
-          setUser(metadata as User)
+          const userData: User = {
+            id: session.user.id,
+            email: session.user.email || metadata.email || '',
+            name: metadata.first_name 
+              ? `${metadata.first_name} ${metadata.last_name || ""}`.trim()
+              : session.user.email?.split('@')[0] || 'Usuario',
+            role: metadata.role || 'admin',
+            isActive: Boolean(metadata.isActive ?? true),
+            createdAt: metadata.createdAt || new Date().toISOString(),
+            updatedAt: metadata.updatedAt || new Date().toISOString(),
+          }
+          console.log("Usuario actualizado después del login:", userData)
+          setUser(userData)
         } catch (error) {
           console.error("Error al cargar metadatos iniciales:", error)
           // Crear un usuario básico temporal
@@ -316,14 +367,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(userData)
         }
       } else if (event === "SIGNED_OUT") {
+        console.log("Usuario ha cerrado sesión")
         setUser(null)
         // Limpiar caché de metadatos
         metadataCache = {}
       } else if (event === "TOKEN_REFRESHED" && session?.user) {
-        console.log("Session refreshed successfully")
-        // Actualizar metadatos si es necesario
+        console.log("Token refrescado exitosamente")
+        // Mantener los datos actuales del usuario si existe
         if (user?.id === session.user.id) {
-          loadUserData(session.user.id)
+          console.log("Token refrescado para el usuario actual")
         }
       }
     })
