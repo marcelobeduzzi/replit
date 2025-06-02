@@ -200,9 +200,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Función para refrescar la sesión
   const refreshSession = async () => {
     try {
-      // Usar el método de Supabase directamente para evitar problemas
+      // Verificar si hay una sesión antes de intentar refrescar
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      
+      if (!currentSession) {
+        console.log("No session available to refresh")
+        return false
+      }
+
       const { data, error } = await supabase.auth.refreshSession()
       if (error) {
+        // Si es un error de sesión faltante, no es grave
+        if (error.message.includes('Auth session missing')) {
+          console.log("Session missing during refresh, user may have logged out")
+          return false
+        }
         console.error("Error refreshing session:", error)
         return false
       }
@@ -214,7 +226,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log("No session to refresh")
         return false
       }
-    } catch (err) {
+    } catch (err: any) {
+      // Manejar errores de sesión faltante de manera silenciosa
+      if (err.message?.includes('Auth session missing')) {
+        console.log("Session missing during refresh, user may have logged out")
+        return false
+      }
       console.error("Session refresh error:", err)
       return false
     }
@@ -252,7 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             id: session.user.id,
             email: session.user.email || '',
             name: session.user.email?.split('@')[0] || 'Usuario',
-            role: 'admin',
+            role: (session.user.user_metadata?.role as UserRole) || 'admin',
             isActive: true,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -291,7 +308,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             id: session.user.id,
             email: session.user.email || '',
             name: session.user.email?.split('@')[0] || 'Usuario',
-            role: 'employee',
+            role: (session.user.user_metadata?.role as UserRole) || 'admin',
             isActive: true,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -371,7 +388,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           id: data.user.id,
           email: data.user.email || '',
           name: data.user.email?.split('@')[0] || 'Usuario',
-          role: 'employee',
+          role: (data.user.user_metadata?.role as UserRole) || 'admin',
           isActive: true,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
