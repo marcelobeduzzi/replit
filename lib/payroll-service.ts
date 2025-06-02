@@ -3,6 +3,43 @@ import { dbService } from "@/lib/db-service"
 import { supabase } from './supabase/client'
 import type { Employee, Payroll } from '@/types'
 
+// Sistema de logging personalizado para evitar errores con console
+const logger = {
+  log: (...args: any[]) => {
+    try {
+      if (typeof window !== 'undefined' && window.console && typeof window.console.log === 'function') {
+        window.console.log(...args)
+      } else if (typeof console !== 'undefined' && typeof console.log === 'function') {
+        console.log(...args)
+      }
+    } catch (error) {
+      // Silenciar errores de logging para no interrumpir la ejecución
+    }
+  },
+  error: (...args: any[]) => {
+    try {
+      if (typeof window !== 'undefined' && window.console && typeof window.console.error === 'function') {
+        window.console.error(...args)
+      } else if (typeof console !== 'undefined' && typeof console.error === 'function') {
+        console.error(...args)
+      }
+    } catch (error) {
+      // Silenciar errores de logging para no interrumpir la ejecución
+    }
+  },
+  warn: (...args: any[]) => {
+    try {
+      if (typeof window !== 'undefined' && window.console && typeof window.console.warn === 'function') {
+        window.console.warn(...args)
+      } else if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+        console.warn(...args)
+      }
+    } catch (error) {
+      // Silenciar errores de logging para no interrumpir la ejecución
+    }
+  }
+}
+
 // Cache para almacenar datos frecuentemente accedidos
 const cache = {
   employees: new Map<string, Employee>(),
@@ -221,14 +258,14 @@ export class PayrollService {
    * Esta función es interna y no modifica la base de datos.
    */
   private calculateAdjustmentsFromAttendances(attendances: any[], baseSalary: number) {
-    console.log("Calculando ajustes a partir de asistencias")
-    console.log("Salario base:", baseSalary)
-    console.log("Número de asistencias:", attendances.length)
+    logger.log("Calculando ajustes a partir de asistencias")
+    logger.log("Salario base:", baseSalary)
+    logger.log("Número de asistencias:", attendances.length)
 
     // Inspeccionar los datos de asistencia
     if (attendances.length > 0) {
-      console.log("Campos disponibles en el primer registro:", Object.keys(attendances[0]))
-      console.log("Muestra de la primera asistencia:", JSON.stringify(attendances[0], null, 2))
+      logger.log("Campos disponibles en el primer registro:", Object.keys(attendances[0]))
+      logger.log("Muestra de la primera asistencia:", JSON.stringify(attendances[0], null, 2))
     }
 
     let deductions = 0
@@ -240,17 +277,17 @@ export class PayrollService {
     const hourSalary = dailySalary / 8 // Salario por hora (asumiendo 8 horas por día)
     const minuteSalary = hourSalary / 60 // Salario por minuto
 
-    console.log(`Valores para cálculos - Diario: ${dailySalary}, Hora: ${hourSalary}, Minuto: ${minuteSalary}`)
+    logger.log(`Valores para cálculos - Diario: ${dailySalary}, Hora: ${hourSalary}, Minuto: ${minuteSalary}`)
 
     // Procesar cada asistencia
     for (const attendance of attendances) {
-      console.log(`Procesando asistencia del día ${attendance.date}`)
+      logger.log(`Procesando asistencia del día ${attendance.date}`)
 
       // Verificar si hay datos relevantes para cálculos
-      console.log(
+      logger.log(
         `Datos de asistencia - isAbsent: ${attendance.isAbsent}, isJustified: ${attendance.isJustified}, isHoliday: ${attendance.isHoliday}`,
       )
-      console.log(
+      logger.log(
         `Minutos - lateMinutes: ${attendance.lateMinutes}, earlyDepartureMinutes: ${attendance.earlyDepartureMinutes}, extraMinutes: ${attendance.extraMinutes}`,
       )
 
@@ -274,7 +311,7 @@ export class PayrollService {
           notes: `Ausencia el día ${attendance.date}`,
           date: attendance.date,
         })
-        console.log(`Ausencia injustificada. Deducción: ${absenceDeduction}`)
+        logger.log(`Ausencia injustificada. Deducción: ${absenceDeduction}`)
       }
 
       // Llegadas tarde
@@ -288,7 +325,7 @@ export class PayrollService {
           notes: `${lateMinutes} minutos tarde el día ${attendance.date}`,
           date: attendance.date,
         })
-        console.log(`Llegada tarde: ${lateMinutes} min. Deducción: ${lateDeduction}`)
+        logger.log(`Llegada tarde: ${lateMinutes} min. Deducción: ${lateDeduction}`)
       }
 
       // Salidas anticipadas
@@ -302,7 +339,7 @@ export class PayrollService {
           notes: `${earlyDepartureMinutes} minutos antes el día ${attendance.date}`,
           date: attendance.date,
         })
-        console.log(`Salida anticipada: ${earlyDepartureMinutes} min. Deducción: ${earlyDeduction}`)
+        logger.log(`Salida anticipada: ${earlyDepartureMinutes} min. Deducción: ${earlyDeduction}`)
       }
 
       // Horas extra
@@ -317,7 +354,7 @@ export class PayrollService {
           notes: `${extraMinutes} minutos extra el día ${attendance.date}`,
           date: attendance.date,
         })
-        console.log(`Horas extra: ${extraMinutes} min. Adición: ${extraAddition}`)
+        logger.log(`Horas extra: ${extraMinutes} min. Adición: ${extraAddition}`)
       }
 
       // Feriados trabajados
@@ -332,7 +369,7 @@ export class PayrollService {
           notes: `Trabajo en día feriado ${attendance.date}`,
           date: attendance.date,
         })
-        console.log(`Feriado trabajado. Adición: ${holidayAddition}`)
+        logger.log(`Feriado trabajado. Adición: ${holidayAddition}`)
       }
     }
 
@@ -340,7 +377,7 @@ export class PayrollService {
     deductions = Number(Math.round(deductions * 100) / 100)
     additions = Number(Math.round(additions * 100) / 100)
 
-    console.log(
+    logger.log(
       `RESUMEN - Total deducciones: ${deductions}, Total adiciones: ${additions}, Detalles: ${details.length}`,
     )
 
@@ -353,7 +390,7 @@ export class PayrollService {
    */
   async generatePayrolls(employeeIds: string[], month: number, year: number) {
     try {
-      console.log(`Generando nóminas para ${employeeIds.length} empleados en período ${month}/${year}`)
+      logger.log(`Generando nóminas para ${employeeIds.length} empleados en período ${month}/${year}`)
       const results = []
 
       for (const employeeId of employeeIds) {
@@ -361,11 +398,11 @@ export class PayrollService {
         const employee = await dbService.getEmployeeById(employeeId)
 
         if (!employee) {
-          console.error(`Empleado con ID ${employeeId} no encontrado`)
+          logger.error(`Empleado con ID ${employeeId} no encontrado`)
           continue
         }
 
-        console.log(`Procesando empleado: ${employee.firstName} ${employee.lastName} (ID: ${employeeId})`)
+        logger.log(`Procesando empleado: ${employee.firstName} ${employee.lastName} (ID: ${employeeId})`)
 
         // Verificar si ya existe una nómina para este empleado en el mes/año especificado
         const allPayrolls = await dbService.getPayrollsByPeriod(month, year, false)
