@@ -1,0 +1,18 @@
+{
+        title: "Planilla de Stock",
+        href: "/stock-check",
+        icon: Package,
+        roles: ["admin", "gerente", "supervisor", "encargado"],
+      },
+      {
+        title: "Control de Stock",
+        href: "/stock-control",
+        icon: Package,
+        roles: ["admin", "gerente", "supervisor", "encargado"],
+      },
+      {
+        title: "Control de Stock Prueba",
+        href: "/stock",
+        icon: Package,
+        roles: ["admin", "gerente", "supervisor", "encargado"],
+      },
