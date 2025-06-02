@@ -12,12 +12,6 @@ interface PayrollCalculationResult {
   additions: number
   finalHandSalary: number
   totalSalary: number
-  details: Array<{
-    concept: string
-    type: 'addition' | 'deduction'
-    amount: number
-    description?: string
-  }>
 }
 
 interface EmployeeCache {
@@ -211,19 +205,6 @@ class PayrollService extends DatabaseServiceBase {
       }
 
       const createdPayroll = await dbPayrollService.createPayroll(payrollData)
-      
-      // Crear detalles de nómina por separado si existen
-      if (calculation.details && calculation.details.length > 0) {
-        for (const detail of calculation.details) {
-          await dbPayrollService.createPayrollDetail({
-            payrollId: createdPayroll.id,
-            concept: detail.concept,
-            type: detail.type,
-            amount: detail.amount,
-            notes: detail.description || ''
-          })
-        }
-      }
       console.log(`Nómina generada para empleado ${employee.first_name} ${employee.last_name}`)
       
     } catch (error) {
@@ -272,8 +253,7 @@ class PayrollService extends DatabaseServiceBase {
         deductions: adjustments.deductions,
         additions: adjustments.additions,
         finalHandSalary: handSalary - adjustments.deductions + adjustments.additions,
-        totalSalary: 0,
-        details: adjustments.details
+        totalSalary: 0
       }
 
       // Calcular total
@@ -292,13 +272,6 @@ class PayrollService extends DatabaseServiceBase {
    * Calcula ajustes basados en asistencias
    */
   private calculateAttendanceAdjustments(attendances: any[], baseSalary: number) {
-    const details: Array<{
-      concept: string
-      type: 'addition' | 'deduction'
-      amount: number
-      description?: string
-    }> = []
-
     let totalDeductions = 0
     let totalAdditions = 0
 
@@ -311,67 +284,36 @@ class PayrollService extends DatabaseServiceBase {
       if (attendance.is_absent && !attendance.is_justified) {
         const dailyDeduction = baseSalary / 30
         totalDeductions += dailyDeduction
-        details.push({
-          concept: 'Ausencia Injustificada',
-          type: 'deduction',
-          amount: dailyDeduction,
-          description: `Fecha: ${attendance.date}`
-        })
       }
 
       // Llegadas tarde
       if (attendance.late_minutes > 0) {
         const lateDeduction = attendance.late_minutes * minuteValue
         totalDeductions += lateDeduction
-        details.push({
-          concept: 'Llegada Tarde',
-          type: 'deduction',
-          amount: lateDeduction,
-          description: `${attendance.late_minutes} minutos el ${attendance.date}`
-        })
       }
 
       // Salidas anticipadas
       if (attendance.early_departure_minutes > 0) {
         const earlyDeduction = attendance.early_departure_minutes * minuteValue
         totalDeductions += earlyDeduction
-        details.push({
-          concept: 'Salida Anticipada',
-          type: 'deduction',
-          amount: earlyDeduction,
-          description: `${attendance.early_departure_minutes} minutos el ${attendance.date}`
-        })
       }
 
       // Horas extra
       if (attendance.extra_minutes > 0) {
         const extraAddition = attendance.extra_minutes * minuteValue * 1.5 // 50% extra
         totalAdditions += extraAddition
-        details.push({
-          concept: 'Horas Extra',
-          type: 'addition',
-          amount: extraAddition,
-          description: `${attendance.extra_minutes} minutos el ${attendance.date}`
-        })
       }
 
       // Feriados trabajados
       if (attendance.is_holiday && !attendance.is_absent) {
         const holidayAddition = baseSalary / 30 // Un día extra
         totalAdditions += holidayAddition
-        details.push({
-          concept: 'Feriado Trabajado',
-          type: 'addition',
-          amount: holidayAddition,
-          description: `Fecha: ${attendance.date}`
-        })
       }
     })
 
     return {
       deductions: Math.round(totalDeductions),
-      additions: Math.round(totalAdditions),
-      details
+      additions: Math.round(totalAdditions)
     }
   }
 
