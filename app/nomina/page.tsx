@@ -50,8 +50,11 @@ import { useAuth } from "@/lib/auth-context"
 export default function NominaPage() {
   const { user, isLoading: authLoading } = useAuth()
 
+  console.log("NominaPage - Estado de autenticación:", { user: !!user, isLoading: authLoading, userEmail: user?.email })
+
   // Si está cargando la autenticación, mostrar spinner
   if (authLoading) {
+    console.log("NominaPage - Mostrando spinner de carga")
     return (
       <DashboardLayout>
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -66,6 +69,7 @@ export default function NominaPage() {
 
   // Si no hay usuario autenticado, mostrar mensaje
   if (!user) {
+    console.log("NominaPage - No hay usuario autenticado")
     return (
       <DashboardLayout>
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -88,6 +92,8 @@ export default function NominaPage() {
       </DashboardLayout>
     )
   }
+
+  console.log("NominaPage - Usuario autenticado correctamente:", user.email)
 
   const router = useRouter()
   // Ya no creamos una nueva instancia, usamos la compartida

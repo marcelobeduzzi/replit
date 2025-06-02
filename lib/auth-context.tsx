@@ -273,7 +273,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const checkSession = async () => {
       try {
-        console.log("Verificando sesión inicial...")
+        console.log("AuthContext - Verificando sesión inicial...")
+        setIsLoading(true)
         
         // Usar un delay para evitar conflictos con otras instancias
         await new Promise(resolve => setTimeout(resolve, 100))
@@ -281,10 +282,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data: { session }, error } = await supabase.auth.getSession()
 
         if (error) {
-          console.error("Error al obtener sesión:", error)
+          console.error("AuthContext - Error al obtener sesión:", error)
           setUser(null)
         } else if (session?.user) {
-          console.log("Sesión encontrada para:", session.user.email)
+          console.log("AuthContext - Sesión encontrada para:", session.user.email)
           
           // Cargar metadatos del usuario
           try {
@@ -300,10 +301,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               createdAt: metadata.createdAt || new Date().toISOString(),
               updatedAt: metadata.updatedAt || new Date().toISOString(),
             }
-            console.log("Usuario cargado con metadatos:", userData)
+            console.log("AuthContext - Usuario cargado con metadatos:", userData)
             setUser(userData)
           } catch (metadataError) {
-            console.error("Error al cargar metadatos, usando datos básicos:", metadataError)
+            console.error("AuthContext - Error al cargar metadatos, usando datos básicos:", metadataError)
             // Si falla la carga de metadatos, usar datos básicos
             const userData: User = {
               id: session.user.id,
@@ -314,16 +315,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             }
+            console.log("AuthContext - Usuario con datos básicos:", userData)
             setUser(userData)
           }
         } else {
-          console.log("No hay sesión activa")
+          console.log("AuthContext - No hay sesión activa")
           setUser(null)
         }
       } catch (err: any) {
-        console.error("Error verificando sesión:", err)
+        console.error("AuthContext - Error verificando sesión:", err)
         setUser(null)
       } finally {
+        console.log("AuthContext - Finalizando verificación de sesión")
         setIsLoading(false)
         setAuthChecked(true)
         isInitializing = false
