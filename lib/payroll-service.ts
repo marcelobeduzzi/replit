@@ -207,11 +207,23 @@ class PayrollService extends DatabaseServiceBase {
         additions: calculation.additions,
         finalHandSalary: calculation.finalHandSalary,
         totalSalary: calculation.totalSalary,
-        isPaid: false,
-        details: calculation.details
+        isPaid: false
       }
 
-      await dbPayrollService.createPayroll(payrollData)
+      const createdPayroll = await dbPayrollService.createPayroll(payrollData)
+      
+      // Crear detalles de nómina por separado si existen
+      if (calculation.details && calculation.details.length > 0) {
+        for (const detail of calculation.details) {
+          await dbPayrollService.createPayrollDetail({
+            payrollId: createdPayroll.id,
+            concept: detail.concept,
+            type: detail.type,
+            amount: detail.amount,
+            notes: detail.description || ''
+          })
+        }
+      }
       console.log(`Nómina generada para empleado ${employee.first_name} ${employee.last_name}`)
       
     } catch (error) {
