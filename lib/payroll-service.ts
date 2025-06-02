@@ -3,21 +3,27 @@ import { dbService } from "@/lib/db-service"
 import { supabase } from './supabase/client'
 import type { Employee, Payroll } from '@/types'
 
-// Sistema de logging seguro para navegador y servidor
+// Sistema de logging simple y seguro
 const logger = {
   log: (...args: any[]) => {
-    if (typeof console !== 'undefined' && console.log) {
+    try {
       console.log(...args)
+    } catch (e) {
+      // Silenciar errores de logging
     }
   },
   error: (...args: any[]) => {
-    if (typeof console !== 'undefined' && console.error) {
+    try {
       console.error(...args)
+    } catch (e) {
+      // Silenciar errores de logging
     }
   },
   warn: (...args: any[]) => {
-    if (typeof console !== 'undefined' && console.warn) {
+    try {
       console.warn(...args)
+    } catch (e) {
+      // Silenciar errores de logging
     }
   }
 }
@@ -372,7 +378,7 @@ export class PayrollService {
    */
   async generatePayrolls(employeeIds: string[], month: number, year: number) {
     try {
-      console.log(`Generando nóminas para ${employeeIds.length} empleados en período ${month}/${year}`)
+      logger.log(`Generando nóminas para ${employeeIds.length} empleados en período ${month}/${year}`)
       const results = []
 
       for (const employeeId of employeeIds) {
@@ -380,18 +386,18 @@ export class PayrollService {
         const employee = await dbService.getEmployeeById(employeeId)
 
         if (!employee) {
-          console.error(`Empleado con ID ${employeeId} no encontrado`)
+          logger.error(`Empleado con ID ${employeeId} no encontrado`)
           continue
         }
 
-        console.log(`Procesando empleado: ${employee.firstName} ${employee.lastName} (ID: ${employeeId})`)
+        logger.log(`Procesando empleado: ${employee.firstName} ${employee.lastName} (ID: ${employeeId})`)
 
         // Verificar si ya existe una nómina para este empleado en el mes/año especificado
         const allPayrolls = await dbService.getPayrollsByPeriod(month, year, false)
         const existingPayrolls = allPayrolls.filter((p) => p.employeeId === employeeId || p.employee_id === employeeId)
 
         if (existingPayrolls.length > 0) {
-          console.log(`La nómina para el empleado ${employeeId} en ${month}/${year} ya existe`)
+          logger.log(`La nómina para el empleado ${employeeId} en ${month}/${year} ya existe`)
           results.push(existingPayrolls[0])
           continue
         }
@@ -402,11 +408,11 @@ export class PayrollService {
         const startDateStr = startDate.toISOString().split("T")[0]
         const endDateStr = endDate.toISOString().split("T")[0]
 
-        console.log(`Obteniendo asistencias desde ${startDateStr} hasta ${endDateStr}`)
+        logger.log(`Obteniendo asistencias desde ${startDateStr} hasta ${endDateStr}`)
 
         // Obtener asistencias del empleado para el período
         const attendances = await dbService.getAttendancesByDateRange(employeeId, startDateStr, endDateStr)
-        console.log(`Se encontraron ${attendances.length} registros de asistencia`)
+        logger.log(`Se encontraron ${attendances.length} registros de asistencia`)
 
         // Calcular los valores base de la nómina
         const baseSalary = Number(employee.base_salary || 0)
@@ -416,7 +422,7 @@ export class PayrollService {
         // REGLA: Si no hay salario en mano ni en banco, el salario base se convierte en salario en mano
         if (handSalary === 0 && bankSalary === 0 && baseSalary > 0) {
           handSalary = baseSalary
-          console.log(`Aplicando regla: Sueldo Base (${baseSalary}) se convierte en Sueldo en Mano`)
+          logger.log(`Aplicando regla: Sueldo Base (${baseSalary}) se convierte en Sueldo en Mano`)
         }
 
         // Calcular bonificación por asistencia si aplica
@@ -425,12 +431,12 @@ export class PayrollService {
           ? Number(employee.attendance_bonus || 0)
           : 0
 
-        console.log(`Valores base: Salario Base=${baseSalary}, Banco=${bankSalary}, Mano=${handSalary}, Bono=${attendanceBonus}`)
+        logger.log(`Valores base: Salario Base=${baseSalary}, Banco=${bankSalary}, Mano=${handSalary}, Bono=${attendanceBonus}`)
 
         // Calcular deducciones y adiciones basadas en asistencias
         const { deductions, additions, details } = this.calculateAdjustmentsFromAttendances(attendances, baseSalary)
 
-        console.log(`Cálculos realizados: Deducciones=${deductions}, Adiciones=${additions}, Detalles=${details.length}`)
+        logger.log(`Cálculos realizados: Deducciones=${deductions}, Adiciones=${additions}, Detalles=${details.length}`)
 
         // NUEVA LÓGICA: Calcular salarios finales según la fórmula correcta
         // final_hand_salary = hand_salary + additions - deductions + bono_presentismo
@@ -440,7 +446,7 @@ export class PayrollService {
         // total_salary = final_hand_salary + bank_salary
         const totalSalary = calculatedFinalHandSalary + bankSalary
 
-        console.log(`Valores finales: Final Mano=${calculatedFinalHandSalary}, Total=${totalSalary}`)
+        logger.log(`Valores finales: Final Mano=${calculatedFinalHandSalary}, Total=${totalSalary}`)
 
         // Crear la nueva nómina con TODOS los valores ya calculados
         const payrollData: any = {
@@ -460,13 +466,13 @@ export class PayrollService {
           attendance_bonus: attendanceBonus,
         }
 
-        console.log("Creando nómina con datos completos:", payrollData)
+        logger.log("Creando nómina con datos completos:", payrollData)
 
         // Tipar key explícitamente
         (Object.keys(payrollData) as string[]).forEach((key: string) => {
           if (typeof payrollData[key] === "number") {
             payrollData[key] = Number(payrollData[key].toString())
-            console.log(`Campo ${key} convertido a número: ${payrollData[key]}`)
+            logger.log(`Campo ${key} convertido a número: ${payrollData[key]}`)
           }
         })
 
@@ -478,16 +484,16 @@ export class PayrollService {
           .select()
 
         if (insertError) {
-          console.error("Error al crear nómina:", insertError)
+          logger.error("Error al crear nómina:", insertError)
           throw insertError
         }
 
         const createdPayroll = insertedData[0]
-        console.log(`Nómina creada con ID: ${createdPayroll.id}`)
+        logger.log(`Nómina creada con ID: ${createdPayroll.id}`)
 
         // Guardar los detalles de la nómina
         if (details.length > 0) {
-          console.log(`Guardando ${details.length} detalles para la nómina`)
+          logger.log(`Guardando ${details.length} detalles para la nómina`)
 
           for (const detail of details) {
             try {
@@ -507,16 +513,16 @@ export class PayrollService {
                 .select()
 
               if (detailError) {
-                console.error("Error al guardar detalle:", detailError)
+                logger.error("Error al guardar detalle:", detailError)
               } else {
-                console.log("Detalle guardado:", insertedDetail)
+                logger.log("Detalle guardado:", insertedDetail)
               }
             } catch (detailError) {
-              console.error("Error al guardar detalle:", detailError)
+              logger.error("Error al guardar detalle:", detailError)
             }
           }
 
-          console.log("Detalles guardados correctamente")
+          logger.log("Detalles guardados correctamente")
         }
 
         results.push(createdPayroll)
@@ -524,7 +530,7 @@ export class PayrollService {
 
       return results
     } catch (error) {
-      console.error("Error al generar nóminas:", error)
+      logger.error("Error al generar nóminas:", error)
       throw new Error("Error al generar nóminas")
     }
   }
