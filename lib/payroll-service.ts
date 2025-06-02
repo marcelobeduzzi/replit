@@ -53,7 +53,7 @@ class PayrollService extends DatabaseServiceBase {
       const { data: employees, error } = await this.supabase
         .from('employees')
         .select('*')
-        .eq('is_active', true)
+        .eq('status', 'active')
 
       if (error) {
         console.error('Error al obtener empleados:', error)
