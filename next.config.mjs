@@ -21,6 +21,11 @@ const nextConfig = {
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
   },
+  // Allow cross-origin requests from Replit subdomains
+  allowedDevOrigins: [
+    /.*\.replit\.dev$/,
+    /.*\.janeway\.replit\.dev$/,
+  ],
 }
 
 mergeConfig(nextConfig, userConfig)
