@@ -23,8 +23,8 @@ const nextConfig = {
   },
   // Allow cross-origin requests from Replit subdomains
   allowedDevOrigins: [
-    /.*\.replit\.dev$/,
-    /.*\.janeway\.replit\.dev$/,
+    "*.replit.dev",
+    "*.janeway.replit.dev",
   ],
 }
 

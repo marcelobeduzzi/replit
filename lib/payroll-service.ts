@@ -7,9 +7,7 @@ import type { Employee, Payroll } from '@/types'
 const logger = {
   log: (...args: any[]) => {
     try {
-      if (typeof window !== 'undefined' && window.console && typeof window.console.log === 'function') {
-        window.console.log(...args)
-      } else if (typeof console !== 'undefined' && typeof console.log === 'function') {
+      if (typeof console !== 'undefined' && console.log) {
         console.log(...args)
       }
     } catch (error) {
