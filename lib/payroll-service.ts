@@ -106,7 +106,7 @@ class PayrollService extends DatabaseServiceBase {
       const batchSize = 5
       const batches = []
 
-      for (let i = 0; < employeeIds.length; i += batchSize) {
+      for (let i = 0; i < employeeIds.length; i += batchSize) {
         batches.push(employeeIds.slice(i, i + batchSize))
       }
 
