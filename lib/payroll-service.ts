@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase/client'
 import { payrollService as dbPayrollService } from './db/db-payroll'
 import { DatabaseServiceBase } from './db/db-core'
@@ -34,7 +33,7 @@ class PayrollService extends DatabaseServiceBase {
     try {
       const cacheKey = 'all_employees'
       const now = Date.now()
-      
+
       // Verificar cache
       if (this.employeeCache[cacheKey] && this.employeeCache[cacheKey].lastFetch && (now - this.employeeCache[cacheKey].lastFetch!) < this.cacheExpiry) {
         console.log('Usando empleados desde cache')
@@ -73,7 +72,7 @@ class PayrollService extends DatabaseServiceBase {
     try {
       const cacheKey = `payrolls_${month}_${year}_${isPaid}`
       const now = Date.now()
-      
+
       // Verificar cache
       if (this.payrollCache[cacheKey] && (now - this.payrollCache[cacheKey].lastFetch) < this.cacheExpiry) {
         console.log(`Usando nóminas desde cache para ${month}/${year}`)
@@ -82,7 +81,7 @@ class PayrollService extends DatabaseServiceBase {
 
       // Obtener nóminas frescas usando el servicio de db-payroll
       const payrolls = await dbPayrollService.getPayrollsByPeriod(month, year, isPaid)
-      
+
       // Actualizar cache
       this.payrollCache[cacheKey] = { 
         data: payrolls, 
@@ -102,12 +101,12 @@ class PayrollService extends DatabaseServiceBase {
   async generatePayrolls(employeeIds: string[], month: number, year: number): Promise<void> {
     try {
       console.log(`Generando nóminas para ${employeeIds.length} empleados`)
-      
+
       // Procesar en lotes de 5 empleados para evitar sobrecarga
       const batchSize = 5
       const batches = []
-      
-      for (let i = 0; i < employeeIds.length; i += batchSize) {
+
+      for (let i = 0; < employeeIds.length; i += batchSize) {
         batches.push(employeeIds.slice(i, i + batchSize))
       }
 
@@ -120,7 +119,7 @@ class PayrollService extends DatabaseServiceBase {
 
       // Limpiar cache para forzar recarga
       this.clearPayrollCache()
-      
+
       console.log('Generación de nóminas completada')
     } catch (error) {
       console.error('Error en generación batch de nóminas:', error)
@@ -134,7 +133,7 @@ class PayrollService extends DatabaseServiceBase {
   async forceRegeneratePayrolls(employeeIds: string[], month: number, year: number): Promise<void> {
     try {
       console.log(`Regenerando nóminas para ${employeeIds.length} empleados`)
-      
+
       // Eliminar nóminas existentes
       for (const employeeId of employeeIds) {
         await this.deleteExistingPayroll(employeeId, month, year)
@@ -142,7 +141,7 @@ class PayrollService extends DatabaseServiceBase {
 
       // Generar nuevas nóminas
       await this.generatePayrolls(employeeIds, month, year)
-      
+
       console.log('Regeneración de nóminas completada')
     } catch (error) {
       console.error('Error en regeneración de nóminas:', error)
@@ -188,7 +187,7 @@ class PayrollService extends DatabaseServiceBase {
 
       // Calcular nómina
       const calculation = await this.calculatePayroll(employee, month, year)
-      
+
       // Crear nómina usando el servicio de db-payroll
       const payrollData = {
         employeeId: employee.id,
@@ -206,7 +205,7 @@ class PayrollService extends DatabaseServiceBase {
 
       const createdPayroll = await dbPayrollService.createPayroll(payrollData)
       console.log(`Nómina generada para empleado ${employee.first_name} ${employee.last_name}`)
-      
+
     } catch (error) {
       console.error(`Error al generar nómina para empleado ${employeeId}:`, error)
       throw error
@@ -338,7 +337,7 @@ class PayrollService extends DatabaseServiceBase {
 
       // Limpiar cache
       this.clearPayrollCache()
-      
+
     } catch (error) {
       console.error('Error al actualizar estado de nómina:', error)
       throw error
@@ -366,7 +365,7 @@ class PayrollService extends DatabaseServiceBase {
 
       // Limpiar cache
       this.clearPayrollCache()
-      
+
     } catch (error) {
       console.error('Error al actualizar detalles de pago:', error)
       throw error
