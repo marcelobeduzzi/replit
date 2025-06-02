@@ -155,8 +155,9 @@ export async function POST(request: Request) {
           additions: Number(additions), // Asegurar que sea número
           final_hand_salary: calculatedFinalHandSalary,
           total_salary: totalSalary,
-          // is_paid es columna generada
+          // is_paid es columna generada - no insertar
           is_paid_hand: false,
+          is_paid_bank: false,
           has_attendance_bonus: hasAttendanceBonus,
           attendance_bonus: attendanceBonus,
           created_at: new Date().toISOString(),

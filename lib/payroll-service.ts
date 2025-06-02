@@ -200,8 +200,8 @@ class PayrollService extends DatabaseServiceBase {
         additions: calculation.additions,
         finalHandSalary: calculation.finalHandSalary,
         totalSalary: calculation.totalSalary,
-        is_paid_hand: false,
-        is_paid_bank: false,
+        isPaidHand: false,
+        isPaidBank: false,
       }
 
       const createdPayroll = await dbPayrollService.createPayroll(payrollData)
