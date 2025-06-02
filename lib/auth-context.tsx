@@ -63,11 +63,6 @@ async function loadUserMetadata(userId: string): Promise<UserMetadata> {
         .select("id, first_name, last_name, email, local, position, role, is_active, created_at, updated_at")
         .eq("id", userId)
         .single()
-        .headers({
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation'
-        })
 
       if (!employeeError && employeeData) {
         console.log("Metadatos cargados desde tabla employees:", employeeData)
