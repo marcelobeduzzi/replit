@@ -372,7 +372,7 @@ export class PayrollService {
    */
   async generatePayrolls(employeeIds: string[], month: number, year: number) {
     try {
-      logger.log(`Generando nóminas para ${employeeIds.length} empleados en período ${month}/${year}`)
+      console.log(`Generando nóminas para ${employeeIds.length} empleados en período ${month}/${year}`)
       const results = []
 
       for (const employeeId of employeeIds) {
@@ -380,18 +380,18 @@ export class PayrollService {
         const employee = await dbService.getEmployeeById(employeeId)
 
         if (!employee) {
-          logger.error(`Empleado con ID ${employeeId} no encontrado`)
+          console.error(`Empleado con ID ${employeeId} no encontrado`)
           continue
         }
 
-        logger.log(`Procesando empleado: ${employee.firstName} ${employee.lastName} (ID: ${employeeId})`)
+        console.log(`Procesando empleado: ${employee.firstName} ${employee.lastName} (ID: ${employeeId})`)
 
         // Verificar si ya existe una nómina para este empleado en el mes/año especificado
         const allPayrolls = await dbService.getPayrollsByPeriod(month, year, false)
         const existingPayrolls = allPayrolls.filter((p) => p.employeeId === employeeId || p.employee_id === employeeId)
 
         if (existingPayrolls.length > 0) {
-          logger.log(`La nómina para el empleado ${employeeId} en ${month}/${year} ya existe`)
+          console.log(`La nómina para el empleado ${employeeId} en ${month}/${year} ya existe`)
           results.push(existingPayrolls[0])
           continue
         }
@@ -402,11 +402,11 @@ export class PayrollService {
         const startDateStr = startDate.toISOString().split("T")[0]
         const endDateStr = endDate.toISOString().split("T")[0]
 
-        logger.log(`Obteniendo asistencias desde ${startDateStr} hasta ${endDateStr}`)
+        console.log(`Obteniendo asistencias desde ${startDateStr} hasta ${endDateStr}`)
 
         // Obtener asistencias del empleado para el período
         const attendances = await dbService.getAttendancesByDateRange(employeeId, startDateStr, endDateStr)
-        logger.log(`Se encontraron ${attendances.length} registros de asistencia`)
+        console.log(`Se encontraron ${attendances.length} registros de asistencia`)
 
         // Calcular los valores base de la nómina
         const baseSalary = Number(employee.base_salary || 0)
@@ -416,7 +416,7 @@ export class PayrollService {
         // REGLA: Si no hay salario en mano ni en banco, el salario base se convierte en salario en mano
         if (handSalary === 0 && bankSalary === 0 && baseSalary > 0) {
           handSalary = baseSalary
-          logger.log(`Aplicando regla: Sueldo Base (${baseSalary}) se convierte en Sueldo en Mano`)
+          console.log(`Aplicando regla: Sueldo Base (${baseSalary}) se convierte en Sueldo en Mano`)
         }
 
         // Calcular bonificación por asistencia si aplica
@@ -425,12 +425,12 @@ export class PayrollService {
           ? Number(employee.attendance_bonus || 0)
           : 0
 
-        logger.log(`Valores base: Salario Base=${baseSalary}, Banco=${bankSalary}, Mano=${handSalary}, Bono=${attendanceBonus}`)
+        console.log(`Valores base: Salario Base=${baseSalary}, Banco=${bankSalary}, Mano=${handSalary}, Bono=${attendanceBonus}`)
 
         // Calcular deducciones y adiciones basadas en asistencias
         const { deductions, additions, details } = this.calculateAdjustmentsFromAttendances(attendances, baseSalary)
 
-        logger.log(`Cálculos realizados: Deducciones=${deductions}, Adiciones=${additions}, Detalles=${details.length}`)
+        console.log(`Cálculos realizados: Deducciones=${deductions}, Adiciones=${additions}, Detalles=${details.length}`)
 
         // NUEVA LÓGICA: Calcular salarios finales según la fórmula correcta
         // final_hand_salary = hand_salary + additions - deductions + bono_presentismo
@@ -440,7 +440,7 @@ export class PayrollService {
         // total_salary = final_hand_salary + bank_salary
         const totalSalary = calculatedFinalHandSalary + bankSalary
 
-        logger.log(`Valores finales: Final Mano=${calculatedFinalHandSalary}, Total=${totalSalary}`)
+        console.log(`Valores finales: Final Mano=${calculatedFinalHandSalary}, Total=${totalSalary}`)
 
         // Crear la nueva nómina con TODOS los valores ya calculados
         const payrollData: any = {
@@ -460,13 +460,13 @@ export class PayrollService {
           attendance_bonus: attendanceBonus,
         }
 
-        logger.log("Creando nómina con datos completos:", payrollData)
+        console.log("Creando nómina con datos completos:", payrollData)
 
         // Tipar key explícitamente
         (Object.keys(payrollData) as string[]).forEach((key: string) => {
           if (typeof payrollData[key] === "number") {
             payrollData[key] = Number(payrollData[key].toString())
-            logger.log(`Campo ${key} convertido a número: ${payrollData[key]}`)
+            console.log(`Campo ${key} convertido a número: ${payrollData[key]}`)
           }
         })
 
@@ -478,16 +478,16 @@ export class PayrollService {
           .select()
 
         if (insertError) {
-          logger.error("Error al crear nómina:", insertError)
+          console.error("Error al crear nómina:", insertError)
           throw insertError
         }
 
         const createdPayroll = insertedData[0]
-        logger.log(`Nómina creada con ID: ${createdPayroll.id}`)
+        console.log(`Nómina creada con ID: ${createdPayroll.id}`)
 
         // Guardar los detalles de la nómina
         if (details.length > 0) {
-          logger.log(`Guardando ${details.length} detalles para la nómina`)
+          console.log(`Guardando ${details.length} detalles para la nómina`)
 
           for (const detail of details) {
             try {
@@ -507,16 +507,16 @@ export class PayrollService {
                 .select()
 
               if (detailError) {
-                logger.error("Error al guardar detalle:", detailError)
+                console.error("Error al guardar detalle:", detailError)
               } else {
-                logger.log("Detalle guardado:", insertedDetail)
+                console.log("Detalle guardado:", insertedDetail)
               }
             } catch (detailError) {
-              logger.error("Error al guardar detalle:", detailError)
+              console.error("Error al guardar detalle:", detailError)
             }
           }
 
-          logger.log("Detalles guardados correctamente")
+          console.log("Detalles guardados correctamente")
         }
 
         results.push(createdPayroll)
@@ -524,7 +524,7 @@ export class PayrollService {
 
       return results
     } catch (error) {
-      logger.error("Error al generar nóminas:", error)
+      console.error("Error al generar nóminas:", error)
       throw new Error("Error al generar nóminas")
     }
   }
