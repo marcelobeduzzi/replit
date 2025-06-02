@@ -29,13 +29,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <head>
-        {/* Agregar un link para cargar los estilos de react-datepicker desde CDN */}
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/react-datepicker@4.21.0/dist/react-datepicker.min.css"
-        />
-      </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <AuthInitializer>
