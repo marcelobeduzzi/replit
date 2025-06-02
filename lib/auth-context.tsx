@@ -69,7 +69,7 @@ async function loadUserMetadata(userId: string): Promise<UserMetadata> {
         const metadata: UserMetadata = {
           id: userId,
           email: employeeData.email || '',
-          role: (employeeData.role as UserRole) || 'employee',
+          role: (employeeData.role as UserRole) || 'admin',
           isActive: Boolean(employeeData.is_active ?? true),
           createdAt: employeeData.created_at || new Date().toISOString(),
           updatedAt: employeeData.updated_at || new Date().toISOString(),
@@ -94,7 +94,7 @@ async function loadUserMetadata(userId: string): Promise<UserMetadata> {
         const metadata: UserMetadata = {
           id: userId,
           email: session.user.email || '',
-          role: (session.user.user_metadata?.role as UserRole) || 'employee',
+          role: (session.user.user_metadata?.role as UserRole) || 'admin',
           isActive: true,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -115,7 +115,7 @@ async function loadUserMetadata(userId: string): Promise<UserMetadata> {
     const basicMetadata: UserMetadata = {
       id: userId,
       email: '',
-      role: 'employee',
+      role: 'admin',
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -172,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: metadata.first_name
             ? `${metadata.first_name} ${metadata.last_name || ""}`.trim()
             : currentUser?.name || metadata.email?.split("@")[0] || "Usuario",
-          role: metadata.role || "employee",
+          role: metadata.role || "admin",
           isActive: Boolean(metadata.isActive ?? true),
           createdAt: metadata.createdAt || new Date().toISOString(),
           updatedAt: metadata.updatedAt || new Date().toISOString(),
