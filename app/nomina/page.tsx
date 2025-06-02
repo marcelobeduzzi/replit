@@ -907,8 +907,7 @@ export default function NominaPage() {
         const methods: Record<string, string> = {
           efectivo: "Efectivo",
           transferencia: "Transferencia",
-          ```text
-cheque: "Cheque",
+          cheque: "Cheque",
           otro: "Otro",
         }
         return methods[row.original.paymentMethod || "efectivo"] || row.original.paymentMethod
