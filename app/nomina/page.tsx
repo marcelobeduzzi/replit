@@ -45,8 +45,36 @@ import type { Employee, Payroll, Liquidation, Attendance } from "@/types"
 import { supabase } from "@/lib/supabase/client" // Importamos la instancia compartida
 import Link from "next/link"
 import { payrollService } from "@/lib/payroll-service" // Importamos el servicio de nóminas
+import { useAuth } from "@/lib/auth-context"
 
 export default function NominaPage() {
+  const { user, isLoading: authLoading } = useAuth()
+
+  // Si no hay usuario autenticado y no está cargando, mostrar mensaje
+  if (!authLoading && !user) {
+    return (
+      <DashboardLayout>
+        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+          <Card className="border-red-200 bg-red-50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-red-700">Acceso denegado</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-red-700">
+                No tienes permisos para acceder a esta página. Por favor inicia sesión.
+              </p>
+              <div className="mt-4">
+                <Button asChild>
+                  <Link href="/login">Iniciar Sesión</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
   const router = useRouter()
   // Ya no creamos una nueva instancia, usamos la compartida
   const [activeTab, setActiveTab] = useState("pendientes")
@@ -193,7 +221,7 @@ export default function NominaPage() {
       const employeesData = await payrollService.getEmployees(
         employees.map(emp => emp.id).concat(inactiveEmployees.map(emp => emp.id))
       )
-      
+
       const activeEmployees = employeesData.filter((emp) => emp.status === "active")
       const inactiveEmps = employeesData.filter((emp) => emp.status === "inactive" && emp.terminationDate)
 
@@ -203,7 +231,7 @@ export default function NominaPage() {
       // Cargar nóminas según la pestaña activa usando el servicio con cache
       if (activeTab === "pendientes" || activeTab === "liquidaciones") {
         const payrollsData = await payrollService.getPayrolls(selectedMonth, selectedYear, false)
-        
+
         // Corregir el mapeo de datos para asegurar que los valores sean correctos
         const correctedPayrolls = payrollsData.map(payroll => ({
           ...payroll,
@@ -251,10 +279,10 @@ export default function NominaPage() {
     setIsGeneratingPayrolls(true)
     try {
       console.log(`Generando nóminas para ${selectedMonth}/${selectedYear}`)
-      
+
       // Obtener IDs de empleados activos
       const employeeIds = employees.map((emp) => emp.id)
-      
+
       // Usar el servicio optimizado para generar nóminas en batch
       await payrollService.generatePayrolls(employeeIds, selectedMonth, selectedYear)
 
@@ -416,7 +444,6 @@ export default function NominaPage() {
       toast({
         title: "Error",
         description: "No se pudo generar el recibo. Intente nuevamente.",
-        variant: "destructive",
       })
     }
   }
@@ -520,7 +547,6 @@ export default function NominaPage() {
       toast({
         title: "Error",
         description: "No se pudo actualizar el bono. Intente nuevamente.",
-        variant: "destructive",
       })
     }
   }
@@ -888,8 +914,7 @@ export default function NominaPage() {
         if ("totalSalary" in row.original) {
           return formatCurrency(row.original.totalSalary)
         } else if ("totalAmount" in row.original) {
-          return formatCurrency(row.original.totalAmount)
-        }
+          return formatCurrency(row.original.totalAmount)        }
         return "-"
       },
     },

@@ -266,7 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [supervisorsLoaded])
 
-  // Verificar sesión al cargar - versión simplificada
+  // Verificar sesión al cargar - versión simplificada y mejorada
   useEffect(() => {
     if (isInitializing) return
     isInitializing = true
@@ -274,6 +274,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const checkSession = async () => {
       try {
         console.log("Verificando sesión inicial...")
+        
+        // Usar un delay para evitar conflictos con otras instancias
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
         const { data: { session }, error } = await supabase.auth.getSession()
 
         if (error) {
@@ -328,60 +332,74 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     checkSession()
 
-    // Suscribirse a cambios de autenticación
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
-      console.log("Auth state changed:", event, session ? `User: ${session.user?.email}` : 'No session')
+    // Suscribirse a cambios de autenticación con delay para evitar conflictos
+    const setupAuthListener = () => {
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
+        console.log("Auth state changed:", event, session ? `User: ${session.user?.email}` : 'No session')
 
-      if (event === "SIGNED_IN" && session?.user) {
-        console.log("Usuario ha iniciado sesión:", session.user.email)
-        // Cargar metadatos inmediatamente
-        try {
-          const metadata = await loadUserMetadata(session.user.id)
-          const userData: User = {
-            id: session.user.id,
-            email: session.user.email || metadata.email || '',
-            name: metadata.first_name 
-              ? `${metadata.first_name} ${metadata.last_name || ""}`.trim()
-              : session.user.email?.split('@')[0] || 'Usuario',
-            role: metadata.role || 'admin',
-            isActive: Boolean(metadata.isActive ?? true),
-            createdAt: metadata.createdAt || new Date().toISOString(),
-            updatedAt: metadata.updatedAt || new Date().toISOString(),
+        if (event === "SIGNED_IN" && session?.user) {
+          console.log("Usuario ha iniciado sesión:", session.user.email)
+          // Cargar metadatos inmediatamente
+          try {
+            const metadata = await loadUserMetadata(session.user.id)
+            const userData: User = {
+              id: session.user.id,
+              email: session.user.email || metadata.email || '',
+              name: metadata.first_name 
+                ? `${metadata.first_name} ${metadata.last_name || ""}`.trim()
+                : session.user.email?.split('@')[0] || 'Usuario',
+              role: metadata.role || 'admin',
+              isActive: Boolean(metadata.isActive ?? true),
+              createdAt: metadata.createdAt || new Date().toISOString(),
+              updatedAt: metadata.updatedAt || new Date().toISOString(),
+            }
+            console.log("Usuario actualizado después del login:", userData)
+            setUser(userData)
+          } catch (error) {
+            console.error("Error al cargar metadatos iniciales:", error)
+            // Crear un usuario básico temporal
+            const userData: User = {
+              id: session.user.id,
+              email: session.user.email || '',
+              name: session.user.email?.split('@')[0] || 'Usuario',
+              role: (session.user.user_metadata?.role as UserRole) || 'admin',
+              isActive: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+            setUser(userData)
           }
-          console.log("Usuario actualizado después del login:", userData)
-          setUser(userData)
-        } catch (error) {
-          console.error("Error al cargar metadatos iniciales:", error)
-          // Crear un usuario básico temporal
-          const userData: User = {
-            id: session.user.id,
-            email: session.user.email || '',
-            name: session.user.email?.split('@')[0] || 'Usuario',
-            role: (session.user.user_metadata?.role as UserRole) || 'admin',
-            isActive: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+        } else if (event === "SIGNED_OUT") {
+          console.log("Usuario ha cerrado sesión")
+          setUser(null)
+          // Limpiar caché de metadatos
+          metadataCache = {}
+        } else if (event === "TOKEN_REFRESHED" && session?.user) {
+          console.log("Token refrescado exitosamente")
+          // Mantener los datos actuales del usuario si existe
+          if (user?.id === session.user.id) {
+            console.log("Token refrescado para el usuario actual")
           }
-          setUser(userData)
         }
-      } else if (event === "SIGNED_OUT") {
-        console.log("Usuario ha cerrado sesión")
-        setUser(null)
-        // Limpiar caché de metadatos
-        metadataCache = {}
-      } else if (event === "TOKEN_REFRESHED" && session?.user) {
-        console.log("Token refrescado exitosamente")
-        // Mantener los datos actuales del usuario si existe
-        if (user?.id === session.user.id) {
-          console.log("Token refrescado para el usuario actual")
-        }
+      })
+
+      return subscription
+    }
+
+    // Configurar el listener con un pequeño delay
+    const timeoutId = setTimeout(() => {
+      const subscription = setupAuthListener()
+      
+      // Limpiar al desmontar
+      return () => {
+        subscription.unsubscribe()
       }
-    })
+    }, 200)
 
     return () => {
-      subscription.unsubscribe()
+      clearTimeout(timeoutId)
     }
   }, [loadUserData])
 
