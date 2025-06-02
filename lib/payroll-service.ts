@@ -1,6 +1,7 @@
 
 import { supabase } from './supabase/client'
-import { dbService } from './db-service'
+import { payrollService as dbPayrollService } from './db/db-payroll'
+import { DatabaseServiceBase } from './db/db-core'
 import type { Employee, Payroll, Attendance } from '@/types'
 
 interface PayrollCalculationResult {
@@ -20,14 +21,14 @@ interface PayrollCalculationResult {
 }
 
 interface EmployeeCache {
-  [key: string]: Employee
+  [key: string]: Employee & { lastFetch?: number }
 }
 
 interface PayrollCache {
-  [key: string]: Payroll[]
+  [key: string]: { data: Payroll[], lastFetch: number }
 }
 
-class PayrollService {
+class PayrollService extends DatabaseServiceBase {
   private employeeCache: EmployeeCache = {}
   private payrollCache: PayrollCache = {}
   private cacheExpiry: number = 5 * 60 * 1000 // 5 minutos
@@ -41,16 +42,24 @@ class PayrollService {
       const now = Date.now()
       
       // Verificar cache
-      if (this.employeeCache[cacheKey] && (now - this.employeeCache[cacheKey].lastFetch) < this.cacheExpiry) {
+      if (this.employeeCache[cacheKey] && this.employeeCache[cacheKey].lastFetch && (now - this.employeeCache[cacheKey].lastFetch!) < this.cacheExpiry) {
         console.log('Usando empleados desde cache')
         return Object.values(this.employeeCache).filter(emp => 
           emp.id && !excludeIds.includes(emp.id)
         )
       }
 
-      // Obtener empleados frescos
-      const employees = await dbService.getEmployees()
-      
+      // Obtener empleados frescos usando supabase directamente
+      const { data: employees, error } = await this.supabase
+        .from('employees')
+        .select('*')
+        .eq('is_active', true)
+
+      if (error) {
+        console.error('Error al obtener empleados:', error)
+        throw error
+      }
+
       // Actualizar cache
       employees.forEach(emp => {
         this.employeeCache[emp.id] = { ...emp, lastFetch: now }
@@ -77,8 +86,8 @@ class PayrollService {
         return this.payrollCache[cacheKey].data
       }
 
-      // Obtener nóminas frescas
-      const payrolls = await dbService.getPayrollsByPeriod(month, year, isPaid)
+      // Obtener nóminas frescas usando el servicio de db-payroll
+      const payrolls = await dbPayrollService.getPayrollsByPeriod(month, year, isPaid)
       
       // Actualizar cache
       this.payrollCache[cacheKey] = { 
@@ -172,16 +181,21 @@ class PayrollService {
    */
   private async generateSinglePayroll(employeeId: string, month: number, year: number): Promise<void> {
     try {
-      // Obtener empleado
-      const employee = await dbService.getEmployeeById(employeeId)
-      if (!employee) {
+      // Obtener empleado usando supabase directamente
+      const { data: employee, error: empError } = await this.supabase
+        .from('employees')
+        .select('*')
+        .eq('id', employeeId)
+        .single()
+
+      if (empError || !employee) {
         throw new Error(`Empleado ${employeeId} no encontrado`)
       }
 
       // Calcular nómina
       const calculation = await this.calculatePayroll(employee, month, year)
       
-      // Crear nómina en la base de datos
+      // Crear nómina usando el servicio de db-payroll
       const payrollData = {
         employeeId: employee.id,
         month,
@@ -197,8 +211,8 @@ class PayrollService {
         details: calculation.details
       }
 
-      await dbService.createPayroll(payrollData)
-      console.log(`Nómina generada para empleado ${employee.firstName} ${employee.lastName}`)
+      await dbPayrollService.createPayroll(payrollData)
+      console.log(`Nómina generada para empleado ${employee.first_name} ${employee.last_name}`)
       
     } catch (error) {
       console.error(`Error al generar nómina para empleado ${employeeId}:`, error)
@@ -209,29 +223,34 @@ class PayrollService {
   /**
    * Calcula la nómina de un empleado
    */
-  private async calculatePayroll(employee: Employee, month: number, year: number): Promise<PayrollCalculationResult> {
+  private async calculatePayroll(employee: any, month: number, year: number): Promise<PayrollCalculationResult> {
     try {
-      console.log(`Calculando nómina para ${employee.firstName} ${employee.lastName}`)
+      console.log(`Calculando nómina para ${employee.first_name} ${employee.last_name}`)
 
-      // Obtener asistencias del período
+      // Obtener asistencias del período usando supabase directamente
       const startDate = new Date(year, month - 1, 1)
       const endDate = new Date(year, month, 0)
       const startDateStr = startDate.toISOString().split('T')[0]
       const endDateStr = endDate.toISOString().split('T')[0]
 
-      const attendances = await dbService.getAttendancesByDateRange(
-        employee.id,
-        startDateStr,
-        endDateStr
-      )
+      const { data: attendances, error: attError } = await this.supabase
+        .from('attendance')
+        .select('*')
+        .eq('employee_id', employee.id)
+        .gte('date', startDateStr)
+        .lte('date', endDateStr)
+
+      if (attError) {
+        console.error('Error al obtener asistencias:', attError)
+      }
 
       // Valores base
-      const baseSalary = Number(employee.baseSalary || 0)
-      const bankSalary = Number(employee.bankSalary || 0)
+      const baseSalary = Number(employee.base_salary || 0)
+      const bankSalary = Number(employee.bank_salary || 0)
       const handSalary = baseSalary - bankSalary
 
       // Calcular ajustes basados en asistencias
-      const adjustments = this.calculateAttendanceAdjustments(attendances, baseSalary)
+      const adjustments = this.calculateAttendanceAdjustments(attendances || [], baseSalary)
 
       // Preparar resultado
       const result: PayrollCalculationResult = {
@@ -248,7 +267,7 @@ class PayrollService {
       // Calcular total
       result.totalSalary = result.finalHandSalary + result.bankSalary
 
-      console.log(`Cálculo completado para ${employee.firstName}: Total ${result.totalSalary}`)
+      console.log(`Cálculo completado para ${employee.first_name}: Total ${result.totalSalary}`)
       return result
 
     } catch (error) {
@@ -260,7 +279,7 @@ class PayrollService {
   /**
    * Calcula ajustes basados en asistencias
    */
-  private calculateAttendanceAdjustments(attendances: Attendance[], baseSalary: number) {
+  private calculateAttendanceAdjustments(attendances: any[], baseSalary: number) {
     const details: Array<{
       concept: string
       type: 'addition' | 'deduction'
@@ -277,7 +296,7 @@ class PayrollService {
     // Procesar cada asistencia
     attendances.forEach(attendance => {
       // Ausencias injustificadas (descuento de día completo)
-      if (attendance.isAbsent && !attendance.isJustified) {
+      if (attendance.is_absent && !attendance.is_justified) {
         const dailyDeduction = baseSalary / 30
         totalDeductions += dailyDeduction
         details.push({
@@ -289,43 +308,43 @@ class PayrollService {
       }
 
       // Llegadas tarde
-      if (attendance.lateMinutes > 0) {
-        const lateDeduction = attendance.lateMinutes * minuteValue
+      if (attendance.late_minutes > 0) {
+        const lateDeduction = attendance.late_minutes * minuteValue
         totalDeductions += lateDeduction
         details.push({
           concept: 'Llegada Tarde',
           type: 'deduction',
           amount: lateDeduction,
-          description: `${attendance.lateMinutes} minutos el ${attendance.date}`
+          description: `${attendance.late_minutes} minutos el ${attendance.date}`
         })
       }
 
       // Salidas anticipadas
-      if (attendance.earlyDepartureMinutes > 0) {
-        const earlyDeduction = attendance.earlyDepartureMinutes * minuteValue
+      if (attendance.early_departure_minutes > 0) {
+        const earlyDeduction = attendance.early_departure_minutes * minuteValue
         totalDeductions += earlyDeduction
         details.push({
           concept: 'Salida Anticipada',
           type: 'deduction',
           amount: earlyDeduction,
-          description: `${attendance.earlyDepartureMinutes} minutos el ${attendance.date}`
+          description: `${attendance.early_departure_minutes} minutos el ${attendance.date}`
         })
       }
 
       // Horas extra
-      if (attendance.extraMinutes > 0) {
-        const extraAddition = attendance.extraMinutes * minuteValue * 1.5 // 50% extra
+      if (attendance.extra_minutes > 0) {
+        const extraAddition = attendance.extra_minutes * minuteValue * 1.5 // 50% extra
         totalAdditions += extraAddition
         details.push({
           concept: 'Horas Extra',
           type: 'addition',
           amount: extraAddition,
-          description: `${attendance.extraMinutes} minutos el ${attendance.date}`
+          description: `${attendance.extra_minutes} minutos el ${attendance.date}`
         })
       }
 
       // Feriados trabajados
-      if (attendance.isHoliday && !attendance.isAbsent) {
+      if (attendance.is_holiday && !attendance.is_absent) {
         const holidayAddition = baseSalary / 30 // Un día extra
         totalAdditions += holidayAddition
         details.push({
@@ -405,7 +424,7 @@ class PayrollService {
    */
   async getPayrollById(payrollId: string): Promise<Payroll | null> {
     try {
-      return await dbService.getPayrollById(payrollId)
+      return await dbPayrollService.getPayrollById(payrollId)
     } catch (error) {
       console.error('Error al obtener nómina por ID:', error)
       throw error
