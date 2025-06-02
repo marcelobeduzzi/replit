@@ -31,36 +31,59 @@ class PayrollService extends DatabaseServiceBase {
    */
   async getEmployees(excludeIds: string[] = []): Promise<Employee[]> {
     try {
+      console.log('PayrollService - Obteniendo empleados activos...')
       const cacheKey = 'all_employees'
       const now = Date.now()
 
       // Verificar cache
       if (this.employeeCache[cacheKey] && this.employeeCache[cacheKey].lastFetch && (now - this.employeeCache[cacheKey].lastFetch!) < this.cacheExpiry) {
-        console.log('Usando empleados desde cache')
-        return Object.values(this.employeeCache).filter(emp => 
+        console.log('PayrollService - Usando empleados desde cache')
+        const cachedEmployees = Object.values(this.employeeCache).filter(emp => 
           emp.id && !excludeIds.includes(emp.id)
         )
+        console.log(`PayrollService - Empleados en cache: ${cachedEmployees.length}`)
+        return cachedEmployees
       }
 
       // Obtener empleados frescos usando supabase directamente
+      console.log('PayrollService - Consultando empleados desde la base de datos...')
       const { data: employees, error } = await this.supabase
         .from('employees')
         .select('*')
         .eq('status', 'active')
 
       if (error) {
-        console.error('Error al obtener empleados:', error)
+        console.error('PayrollService - Error al obtener empleados:', error)
         throw error
       }
 
-      // Actualizar cache
-      employees.forEach(emp => {
-        this.employeeCache[emp.id] = { ...emp, lastFetch: now }
-      })
+      console.log(`PayrollService - Empleados obtenidos de la DB: ${employees?.length || 0}`)
+      
+      if (employees && employees.length > 0) {
+        console.log('PayrollService - Primeros empleados encontrados:', 
+          employees.slice(0, 3).map(emp => ({ 
+            id: emp.id, 
+            name: `${emp.first_name} ${emp.last_name}`,
+            status: emp.status 
+          }))
+        )
+      } else {
+        console.warn('PayrollService - No se encontraron empleados activos en la base de datos')
+      }
 
-      return employees.filter(emp => !excludeIds.includes(emp.id))
+      // Actualizar cache
+      if (employees) {
+        employees.forEach(emp => {
+          this.employeeCache[emp.id] = { ...emp, lastFetch: now }
+        })
+      }
+
+      const filteredEmployees = (employees || []).filter(emp => !excludeIds.includes(emp.id))
+      console.log(`PayrollService - Empleados después de filtrar: ${filteredEmployees.length}`)
+      
+      return filteredEmployees
     } catch (error) {
-      console.error('Error al obtener empleados:', error)
+      console.error('PayrollService - Error al obtener empleados:', error)
       throw error
     }
   }
@@ -100,7 +123,12 @@ class PayrollService extends DatabaseServiceBase {
    */
   async generatePayrolls(employeeIds: string[], month: number, year: number): Promise<void> {
     try {
-      console.log(`Generando nóminas para ${employeeIds.length} empleados`)
+      console.log(`PayrollService - Iniciando generación de nóminas para ${employeeIds.length} empleados`)
+      console.log(`PayrollService - IDs de empleados a procesar: ${employeeIds.slice(0, 5).join(', ')}${employeeIds.length > 5 ? '...' : ''}`)
+
+      if (employeeIds.length === 0) {
+        throw new Error('No se proporcionaron IDs de empleados para generar nóminas')
+      }
 
       // Procesar en lotes de 5 empleados para evitar sobrecarga
       const batchSize = 5
@@ -110,19 +138,56 @@ class PayrollService extends DatabaseServiceBase {
         batches.push(employeeIds.slice(i, i + batchSize))
       }
 
-      for (const batch of batches) {
-        await Promise.all(
-          batch.map(employeeId => this.generateSinglePayroll(employeeId, month, year))
-        )
-        console.log(`Procesado lote de ${batch.length} empleados`)
+      console.log(`PayrollService - Procesando en ${batches.length} lotes de máximo ${batchSize} empleados`)
+
+      let processedCount = 0
+      let errorCount = 0
+
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i]
+        console.log(`PayrollService - Procesando lote ${i + 1}/${batches.length} con ${batch.length} empleados`)
+        
+        try {
+          const results = await Promise.allSettled(
+            batch.map(employeeId => this.generateSinglePayroll(employeeId, month, year))
+          )
+
+          // Contar resultados
+          const successful = results.filter(r => r.status === 'fulfilled').length
+          const failed = results.filter(r => r.status === 'rejected').length
+
+          processedCount += successful
+          errorCount += failed
+
+          if (failed > 0) {
+            console.warn(`PayrollService - Lote ${i + 1}: ${successful} exitosos, ${failed} fallidos`)
+            results.forEach((result, index) => {
+              if (result.status === 'rejected') {
+                console.error(`PayrollService - Error en empleado ${batch[index]}:`, result.reason)
+              }
+            })
+          } else {
+            console.log(`PayrollService - Lote ${i + 1} procesado exitosamente`)
+          }
+        } catch (batchError) {
+          console.error(`PayrollService - Error en el lote ${i + 1}:`, batchError)
+          errorCount += batch.length
+        }
       }
 
       // Limpiar cache para forzar recarga
       this.clearPayrollCache()
 
-      console.log('Generación de nóminas completada')
+      console.log(`PayrollService - Generación completada: ${processedCount} exitosas, ${errorCount} fallidas`)
+      
+      if (errorCount > 0 && processedCount === 0) {
+        throw new Error(`Falló la generación de todas las nóminas (${errorCount} errores)`)
+      } else if (errorCount > 0) {
+        console.warn(`PayrollService - Se completó con ${errorCount} errores de ${employeeIds.length} empleados`)
+      }
+
     } catch (error) {
-      console.error('Error en generación batch de nóminas:', error)
+      console.error('PayrollService - Error en generación batch de nóminas:', error)
       throw error
     }
   }
@@ -174,6 +239,8 @@ class PayrollService extends DatabaseServiceBase {
    */
   private async generateSinglePayroll(employeeId: string, month: number, year: number): Promise<void> {
     try {
+      console.log(`PayrollService - Generando nómina individual para empleado ${employeeId}`)
+
       // Obtener empleado usando supabase directamente
       const { data: employee, error: empError } = await this.supabase
         .from('employees')
@@ -181,12 +248,38 @@ class PayrollService extends DatabaseServiceBase {
         .eq('id', employeeId)
         .single()
 
-      if (empError || !employee) {
+      if (empError) {
+        console.error(`PayrollService - Error al obtener empleado ${employeeId}:`, empError)
+        throw new Error(`Error al obtener empleado ${employeeId}: ${empError.message}`)
+      }
+
+      if (!employee) {
         throw new Error(`Empleado ${employeeId} no encontrado`)
       }
 
+      console.log(`PayrollService - Empleado obtenido: ${employee.first_name} ${employee.last_name}`)
+
+      // Verificar si ya existe una nómina para este empleado en este período
+      const existingPayrolls = await dbPayrollService.getPayrollsByEmployeeAndPeriod(employeeId, month, year)
+      
+      if (existingPayrolls && existingPayrolls.length > 0) {
+        console.log(`PayrollService - Ya existe nómina para empleado ${employee.first_name} ${employee.last_name} en ${month}/${year}`)
+        return // No generar duplicado
+      }
+
       // Calcular nómina
+      console.log(`PayrollService - Calculando nómina para ${employee.first_name} ${employee.last_name}`)
       const calculation = await this.calculatePayroll(employee, month, year)
+
+      console.log(`PayrollService - Cálculos completados para ${employee.first_name}:`, {
+        baseSalary: calculation.baseSalary,
+        bankSalary: calculation.bankSalary,
+        handSalary: calculation.handSalary,
+        deductions: calculation.deductions,
+        additions: calculation.additions,
+        finalHandSalary: calculation.finalHandSalary,
+        totalSalary: calculation.totalSalary
+      })
 
       // Crear nómina usando el servicio de db-payroll
       const payrollData = {
@@ -203,11 +296,12 @@ class PayrollService extends DatabaseServiceBase {
         // No incluir isPaid - se manejará por is_paid_hand e is_paid_bank
       }
 
+      console.log(`PayrollService - Creando nómina en la base de datos para ${employee.first_name}`)
       const createdPayroll = await dbPayrollService.createPayroll(payrollData)
-      console.log(`Nómina generada para empleado ${employee.first_name} ${employee.last_name}`)
+      console.log(`PayrollService - Nómina generada exitosamente para empleado ${employee.first_name} ${employee.last_name} con ID: ${createdPayroll.id}`)
 
     } catch (error) {
-      console.error(`Error al generar nómina para empleado ${employeeId}:`, error)
+      console.error(`PayrollService - Error al generar nómina para empleado ${employeeId}:`, error)
       throw error
     }
   }
