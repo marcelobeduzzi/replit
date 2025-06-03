@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -42,13 +43,15 @@ import { StatusBadge } from "@/components/status-badge"
 import { Badge } from "@/components/ui/badge"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { Employee, Payroll, Liquidation, Attendance } from "@/types"
-import { supabase } from "@/lib/supabase/client" // Importamos la instancia compartida
+import { supabase } from "@/lib/supabase/client"
 import Link from "next/link"
-import { payrollService } from "@/lib/payroll-service" // Importamos el servicio de nóminas
+import { payrollService } from "@/lib/payroll-service"
 import { useAuth } from "@/lib/auth-context"
 
 export default function NominaPage() {
   const { user, isLoading: authLoading } = useAuth()
+  const router = useRouter()
+  const { toast } = useToast()
 
   console.log("NominaPage - Estado de autenticación:", { user: !!user, isLoading: authLoading, userEmail: user?.email })
 
@@ -95,8 +98,7 @@ export default function NominaPage() {
 
   console.log("NominaPage - Usuario autenticado correctamente:", user.email)
 
-  const router = useRouter()
-  // Ya no creamos una nueva instancia, usamos la compartida
+  // Estados del componente
   const [activeTab, setActiveTab] = useState("pendientes")
   const [payrolls, setPayrolls] = useState<Payroll[]>([])
   const [filteredPayrolls, setFilteredPayrolls] = useState<Payroll[]>([])
@@ -120,7 +122,6 @@ export default function NominaPage() {
   const [attendances, setAttendances] = useState<Attendance[]>([])
   const [isLoadingAttendances, setIsLoadingAttendances] = useState(false)
   const [historyFilter, setHistoryFilter] = useState<"all" | "payroll" | "liquidation">("all")
-  const { toast } = useToast()
 
   // Estados para el diálogo de pago
   const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split("T")[0])
@@ -129,12 +130,13 @@ export default function NominaPage() {
   const [paymentNotes, setPaymentNotes] = useState<string>("")
   const [isHandSalaryPaid, setIsHandSalaryPaid] = useState(false)
   const [isBankSalaryPaid, setIsBankSalaryPaid] = useState(false)
+
   // Estados para el bono de presentismo
   const [hasAttendanceBonus, setHasAttendanceBonus] = useState(false)
-  const [attendanceBonus, setAttendanceBonus] = useState(50000) // Valor predeterminado del bono
+  const [attendanceBonus, setAttendanceBonus] = useState(50000)
   const [isAttendanceBonusDialogOpen, setIsAttendanceBonusDialogOpen] = useState(false)
 
-  // Nuevos estados para los totales
+  // Estados para los totales
   const [payrollTotals, setPayrollTotals] = useState({
     totalHand: 0,
     totalBank: 0,
@@ -153,28 +155,27 @@ export default function NominaPage() {
 
   // Función para calcular los totales de nóminas
   useEffect(() => {
-  if (filteredPayrolls.length > 0) {
-    const totals = filteredPayrolls.reduce(
-      (acc, payroll) => {
-        // Asegurarse de usar los campos correctos con fallbacks
-        const finalHandSalary = payroll.finalHandSalary || payroll.final_hand_salary || 0
-        const bankSalary = payroll.bankSalary || payroll.bank_salary || 0
-        const totalSalary = payroll.totalSalary || payroll.total_salary || 0
+    if (filteredPayrolls.length > 0) {
+      const totals = filteredPayrolls.reduce(
+        (acc, payroll) => {
+          const finalHandSalary = payroll.finalHandSalary || payroll.final_hand_salary || 0
+          const bankSalary = payroll.bankSalary || payroll.bank_salary || 0
+          const totalSalary = payroll.totalSalary || payroll.total_salary || 0
 
-        return {
-          totalHand: acc.totalHand + finalHandSalary,
-          totalBank: acc.totalBank + bankSalary,
-          totalAmount: acc.totalAmount + totalSalary,
-        }
-      },
-      { totalHand: 0, totalBank: 0, totalAmount: 0 },
-    )
+          return {
+            totalHand: acc.totalHand + finalHandSalary,
+            totalBank: acc.totalBank + bankSalary,
+            totalAmount: acc.totalAmount + totalSalary,
+          }
+        },
+        { totalHand: 0, totalBank: 0, totalAmount: 0 },
+      )
 
-    setPayrollTotals(totals)
-  } else {
-    setPayrollTotals({ totalHand: 0, totalBank: 0, totalAmount: 0 })
-  }
-}, [filteredPayrolls])
+      setPayrollTotals(totals)
+    } else {
+      setPayrollTotals({ totalHand: 0, totalBank: 0, totalAmount: 0 })
+    }
+  }, [filteredPayrolls])
 
   // Función para calcular los totales de liquidaciones
   useEffect(() => {
@@ -191,11 +192,10 @@ export default function NominaPage() {
 
   // Función para preservar la sesión al navegar a otras páginas
   const preserveSession = () => {
-    // Almacenar un token temporal en localStorage
     localStorage.setItem("nomina_session", "active")
   }
 
-  // Reemplazar la función loadData con una versión optimizada
+  // Función para cargar datos
   const loadData = async () => {
     setIsLoading(true)
     try {
@@ -256,7 +256,7 @@ export default function NominaPage() {
     }
   }
 
-  // Reemplazar handleGeneratePayrolls con una versión optimizada
+  // Función para generar nóminas
   const handleGeneratePayrolls = async () => {
     setIsGeneratingPayrolls(true)
     try {
@@ -693,15 +693,15 @@ export default function NominaPage() {
       },
     },
     {
-  accessorKey: "totalSalary",
-  header: "Total a Pagar",
-  cell: ({ row }) => {
-    // Asegurarse de usar el valor correcto para el total
-    // Debe ser la suma de final_hand_salary + bank_salary
-    const totalSalary = row.original.totalSalary || row.original.total_salary || 0
-    return formatCurrency(totalSalary)
-  },
-},
+      accessorKey: "totalSalary",
+      header: "Total a Pagar",
+      cell: ({ row }) => {
+        // Asegurarse de usar el valor correcto para el total
+        // Debe ser la suma de final_hand_salary + bank_salary
+        const totalSalary = row.original.totalSalary || row.original.total_salary || 0
+        return formatCurrency(totalSalary)
+      },
+    },
     {
       accessorKey: "status",
       header: "Estado",
@@ -1019,7 +1019,8 @@ export default function NominaPage() {
         if ("totalSalary" in row.original) {
           return formatCurrency(row.original.totalSalary)
         } else if ("totalAmount" in row.original) {
-          return formatCurrency(row.original.totalAmount)        }
+          return formatCurrency(row.original.totalAmount)
+        }
         return "-"
       },
     },
@@ -1074,120 +1075,6 @@ export default function NominaPage() {
   // Generar años para el selector (año actual y 5 años anteriores)
   const currentYear = new Date().getFullYear()
   const years = Array.from({ length: 6 }, (_, i) => currentYear - i)
-
-    const [selectedPeriod, setSelectedPeriod] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`);
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [payrollData, setPayrollData] = useState([]);
-
-    const fetchPayrollData = async () => {
-    try {
-      setIsLoading(true);
-      const [historyPayrollsData, historyLiquidationsData] = await Promise.all([
-        payrollService.getPayrolls(selectedMonth, selectedYear, true),
-        dbService.getLiquidations(true)
-      ]);
-
-      setHistoryPayrolls(historyPayrollsData);
-      setHistoryLiquidations(historyLiquidationsData);
-    } catch (error) {
-      console.error("Error al cargar datos:", error);
-      toast({
-        title: "Error",
-        description: "No se pudieron cargar los datos. Intente nuevamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-    const handlePeriodChange = (e) => {
-    setSelectedPeriod(e.target.value);
-  };
-
-  const handleGeneratePayroll = async () => {
-    try {
-      setIsGenerating(true)
-
-      console.log(`🔄 Generando nóminas para período: ${selectedPeriod}`)
-
-      const response = await fetch("/api/payroll/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ period: selectedPeriod, regenerate: false }),
-      })
-
-      const data = await response.json()
-
-      console.log('Respuesta de la API:', data)
-
-      if (response.ok && data.success) {
-        toast({
-          title: "Éxito",
-          description: data.message || "Nóminas generadas correctamente",
-        })
-        await fetchPayrollData() // Recargar datos
-      } else {
-        console.error('Error en la respuesta:', data)
-        toast({
-          title: "Error",
-          description: data.error || "Error al generar nóminas",
-          variant: "destructive",
-        })
-      }
-    } catch (error: any) {
-      console.error("Error al generar nóminas:", error)
-      toast({
-        title: "Error",
-        description: `Error de conexión: ${error.message}`,
-        variant: "destructive",
-      })
-    } finally {
-      setIsGenerating(false)
-    }
-  }
-
-  const handleRegeneratePayroll = async () => {
-    try {
-      setIsGenerating(true)
-
-      console.log(`🔄 Regenerando nóminas para período: ${selectedPeriod}`)
-
-      const response = await fetch("/api/payroll/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ period: selectedPeriod, regenerate: true }),
-      })
-
-      const data = await response.json()
-
-      console.log('Respuesta de regeneración:', data)
-
-      if (response.ok && data.success) {
-        toast({
-          title: "Éxito",
-          description: data.message || "Nóminas regeneradas correctamente",
-        })
-        await fetchPayrollData() // Recargar datos
-      } else {
-        console.error('Error en la regeneración:', data)
-        toast({
-          title: "Error",
-          description: data.error || "Error al regenerar nóminas",
-          variant: "destructive",
-        })
-      }
-    } catch (error: any) {
-      console.error("Error al regenerar nóminas:", error)
-      toast({
-        title: "Error",
-        description: `Error de conexión: ${error.message}`,
-        variant: "destructive",
-      })
-    } finally {
-      setIsGenerating(false)
-    }
-  }
 
   return (
     <DashboardLayout>
@@ -1261,44 +1148,44 @@ export default function NominaPage() {
           </Button>
 
           <Button
-  variant="outline"
-  onClick={async () => {
-    try {
-      setIsGeneratingPayrolls(true)
-      const employeeIds = employees.map((emp) => emp.id)
+            variant="outline"
+            onClick={async () => {
+              try {
+                setIsGeneratingPayrolls(true)
+                const employeeIds = employees.map((emp) => emp.id)
 
-      console.log("=== INICIO DE REGENERACIÓN DE NÓMINAS ===")
-      console.log(`Regenerando nóminas para ${selectedMonth}/${selectedYear}`)
-      console.log(`Empleados seleccionados: ${employeeIds.length}`)
+                console.log("=== INICIO DE REGENERACIÓN DE NÓMINAS ===")
+                console.log(`Regenerando nóminas para ${selectedMonth}/${selectedYear}`)
+                console.log(`Empleados seleccionados: ${employeeIds.length}`)
 
-      // Usar el servicio optimizado para regenerar nóminas en batch
-      await payrollService.forceRegeneratePayrolls(employeeIds, selectedMonth, selectedYear)
+                // Usar el servicio optimizado para regenerar nóminas en batch
+                await payrollService.forceRegeneratePayrolls(employeeIds, selectedMonth, selectedYear)
 
-      console.log("=== FIN DE REGENERACIÓN DE NÓMINAS ===")
+                console.log("=== FIN DE REGENERACIÓN DE NÓMINAS ===")
 
-      toast({
-        title: "Nóminas regeneradas",
-        description: "Las nóminas han sido regeneradas correctamente.",
-      })
+                toast({
+                  title: "Nóminas regeneradas",
+                  description: "Las nóminas han sido regeneradas correctamente.",
+                })
 
-      // Recargar datos usando el cache
-      await loadData()
-    } catch (error) {
-      console.error("Error al regenerar nóminas:", error)
-      toast({
-        title: "Error",
-        description: "No se pudieron regenerar las nóminas. Intente nuevamente.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsGeneratingPayrolls(false)
-    }
-  }}
-  disabled={isGeneratingPayrolls}
->
-  <RefreshCw className={`mr-2 h-4 w-4 ${isGeneratingPayrolls ? "animate-spin" : ""}`} />
-  {isGeneratingPayrolls ? "Regenerando..." : "Regenerar Nóminas"}
-</Button>
+                // Recargar datos usando el cache
+                await loadData()
+              } catch (error) {
+                console.error("Error al regenerar nóminas:", error)
+                toast({
+                  title: "Error",
+                  description: "No se pudieron regenerar las nóminas. Intente nuevamente.",
+                  variant: "destructive",
+                })
+              } finally {
+                setIsGeneratingPayrolls(false)
+              }
+            }}
+            disabled={isGeneratingPayrolls}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isGeneratingPayrolls ? "animate-spin" : ""}`} />
+            {isGeneratingPayrolls ? "Regenerando..." : "Regenerar Nóminas"}
+          </Button>
 
           {activeTab === "liquidaciones" && (
             <>
@@ -1440,7 +1327,7 @@ export default function NominaPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Liquidaciones Finales</CardTitle>
-                <CardDescription>Liquidaciones pendientes por fin de relación laboral</CardHeader>
+                <CardDescription>Liquidaciones pendientes por fin de relación laboral</CardDescription>
               </CardHeader>
               <CardContent>
                 <DataTable
@@ -2143,4 +2030,3 @@ export default function NominaPage() {
     </DashboardLayout>
   )
 }
-
