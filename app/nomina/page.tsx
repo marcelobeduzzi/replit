@@ -1189,9 +1189,6 @@ export default function NominaPage() {
     }
   }
 
-
-
-
   return (
     <DashboardLayout>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -2147,69 +2144,3 @@ export default function NominaPage() {
   )
 }
 
-const generatePayrolls = async () => {
-    if (!selectedMonth || !selectedYear) return
-
-    setIsGenerating(true)
-    try {
-      console.log(`NominaPage - Iniciando generación de nóminas para ${selectedMonth}/${selectedYear}`)
-
-      // Obtener empleados activos para generar sus nóminas
-      console.log('NominaPage - Obteniendo empleados activos...')
-      const employees = await payrollService.getEmployees()
-      console.log(`NominaPage - Empleados obtenidos: ${employees.length}`)
-
-      if (employees.length === 0) {
-        console.warn('NominaPage - No hay empleados activos disponibles')
-        // Intentar obtener empleados directamente desde la base de datos para diagnóstico
-        const { data: allEmployees, error } = await supabase
-          .from('employees')
-          .select('id, first_name, last_name, status')
-          .order('first_name')
-
-        if (error) {
-          console.error('NominaPage - Error al consultar empleados para diagnóstico:', error)
-        } else {
-          console.log(`NominaPage - Diagnóstico - Total empleados en DB: ${allEmployees?.length || 0}`)
-          if (allEmployees && allEmployees.length > 0) {
-            const activeCount = allEmployees.filter(emp => emp.status === 'active').length
-            const inactiveCount = allEmployees.filter(emp => emp.status !== 'active').length
-            console.log(`NominaPage - Diagnóstico - Empleados activos: ${activeCount}, Inactivos: ${inactiveCount}`)
-            console.log('NominaPage - Diagnóstico - Estados encontrados:', [...new Set(allEmployees.map(emp => emp.status))])
-          }
-        }
-
-        throw new Error('No hay empleados activos para generar nóminas. Verifique que los empleados tengan status "active".')
-      }
-
-      console.log('NominaPage - Empleados para generar nóminas:', 
-        employees.slice(0, 5).map(emp => ({ 
-          id: emp.id, 
-          name: `${emp.firstName || emp.first_name} ${emp.lastName || emp.last_name}` 
-        }))
-      )
-
-      // Generar nóminas para todos los empleados
-      const employeeIds = employees.map(emp => emp.id)
-      console.log(`NominaPage - Generando nóminas para IDs: ${employeeIds.slice(0, 5).join(', ')}${employeeIds.length > 5 ? '...' : ''}`)
-
-      await payrollService.generatePayrolls(employeeIds, selectedMonth, selectedYear)
-
-      console.log('NominaPage - Nóminas generadas exitosamente, recargando lista...')
-      await loadPayrolls()
-
-      toast({
-        title: "Éxito",
-        description: `Se generaron ${employees.length} nóminas para ${selectedMonth}/${selectedYear}`,
-      })
-    } catch (error: any) {
-      console.error('NominaPage - Error al generar nóminas:', error)
-      toast({
-        title: "Error",
-        description: error.message || "Error al generar nóminas",
-        variant: "destructive",
-      })
-    } finally {
-      setIsGenerating(false)
-    }
-  }
