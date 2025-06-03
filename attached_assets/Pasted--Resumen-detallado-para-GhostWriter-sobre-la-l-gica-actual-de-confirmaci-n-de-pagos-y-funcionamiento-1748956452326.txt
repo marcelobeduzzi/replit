@@ -1,0 +1,64 @@
+
+Resumen detallado para GhostWriter sobre la lógica actual de confirmación de pagos y funcionamiento de la sección Payroll
+
+✅ FLUJO OPERATIVO ACTUAL:
+
+1. Se genera una nómina desde el frontend.
+2. Esto crea registros en la tabla `payroll`, uno por cada empleado incluido en la nómina generada.
+3. En el frontend, se puede hacer clic en “Confirmar pago” para cada empleado.
+4. Al hacerlo, se muestra una opción para registrar el pago de:
+   - Solo en mano (cash)
+   - Solo en banco (bank)
+   - Ambos
+   - ⚠️ Uno de los dos (mano o banco) puede estar en cero, pero no ambos.
+5. Una vez registrado el pago (al menos uno de los dos > 0), el sistema debería:
+   - ✅ Actualizar los campos `is_paid_hand` y `is_paid_bank` en la tabla `payroll` según corresponda.
+   - ✅ Insertar la `hand_payment_date` y/o `bank_payment_date` según corresponda.
+   - ✅ Cuando ambos pagos están realizados, se debería actualizar el campo `is_paid` a `true`.
+   - ✅ Finalmente, eso debe hacer que ese registro se mueva al historial de pagos en el frontend.
+
+🧠 SUPUESTAS LÓGICAS CLAVE:
+
+- is_paid_hand = true → cuando se confirma un pago en mano.
+- is_paid_bank = true → cuando se confirma un pago por banco.
+- is_paid = true → cuando ambos anteriores son true.
+- Estos campos ya existen en la tabla `payroll` según la estructura confirmada por el usuario.
+
+⚠️ Errores actuales:
+
+- El sistema tira error si alguno de los valores (mano o banco) está en cero. Pero esto debería estar permitido.
+- En algunos casos, parece debitar correctamente del total a pagar, pero no se registra en `payroll_details`.
+- El historial en el frontend no muestra los pagos realizados (aunque pudieron haber afectado el total general).
+- La tabla `payroll_details` está vacía aún cuando se confirma un pago.
+
+📦 TABLAS INVOLUCRADAS Y SU ESTRUCTURA:
+
+TABLA: payroll
+- is_paid_hand: boolean
+- is_paid_bank: boolean
+- is_paid: boolean
+- hand_payment_date: timestamp
+- bank_payment_date: timestamp
+- Otros campos como: hand_salary, bank_salary, total_salary, deductions, additions, etc.
+
+TABLA: payroll_details
+- Cuando se confirma un pago, se debería crear un registro acá.
+- Campos clave: payroll_id, type (por ejemplo “Banco” o “Mano”), concept (por ejemplo “Pago nómina”), amount, date.
+
+TABLA: pending_liquidations
+- No entra en esta lógica, se usará en la siguiente fase.
+
+🛑 IMPORTANTE:
+La parte de generación de nómina y cálculo actual FUNCIONA correctamente. Los valores se calculan bien y el frontend los muestra bien.
+
+⛔ A partir de ahora, NO MODIFICAR ninguna funcionalidad previa de generación de nómina.
+
+✅ Todo lo nuevo debe centrarse en:
+1. Confirmación de pagos
+2. Registro correcto en payroll_details
+3. Mostrado correcto en historial del frontend
+
+🛟 Si GhostWriter necesita confirmar cómo se arma alguna tabla o campo, se puede pedir el SQL directamente.
+
+El usuario está disponible para responder dudas específicas sobre la estructura o la lógica que no quede clara.
+Hay que aclarar que o bien todo o algunas partes de esta logica mencionada ya estan o estaban declaradas dentro de los archivos, asi que revisar antes de dejar funciones duplicadas o que puedan chocar entre si.

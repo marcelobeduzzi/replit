@@ -1,0 +1,61 @@
+
+Hola Ghostwriter, te agradezco todos los avances que hiciste hasta ahora. La sección de nóminas quedó funcionando correctamente, incluyendo:
+- Cálculo de sueldos en mano y banco
+- Deducciones y adiciones desde asistencias
+- Visualización correcta de empleados
+
+Ahora quiero avanzar y cerrar definitivamente la funcionalidad de **confirmación de pagos**, pero surgieron algunos problemas que necesito que revises en profundidad.
+
+---
+
+## 🔄 LÓGICA DE CONFIRMACIÓN DE PAGO (Resumen General)
+
+Cuando se genera una nómina, se calcula el sueldo a pagar (en mano y en banco). Luego, el usuario puede confirmar el pago de uno o ambos componentes. El proceso completo debe:
+
+1. Tomar los valores de `payment_bank` y `payment_hand` de la tabla `payroll`
+2. Permitir confirmar uno solo o ambos (pueden ser valores en 0)
+3. Una vez confirmados ambos, el pago debe considerarse **completo**
+4. Ese pago completo debe pasar a:
+   - **Tabla `payroll_details`** (Historial de pagos realizados)
+   - **Sección visual de historial de pagos** en el frontend
+   - Debe restarse del **"Total a pagar"** visible en la nómina
+
+---
+
+## ❌ ERRORES DETECTADOS
+
+- Al confirmar un pago con un valor en 0 (por ejemplo, pago por banco = 0), el sistema devuelve:
+```
+Error: Error de Supabase actualizando estado de pago: {}
+```
+- En ciertos casos, **el total a pagar se actualiza correctamente**, pero no se genera el registro en `payroll_details` y no aparece nada en el historial visual del frontend.
+- Aparecen registros sueltos en "Liquidaciones pendientes" que no tienen correspondencia visual ni parecen tener fecha coherente.
+
+---
+
+## ✅ LO QUE NECESITO QUE REVISES
+
+1. **¿Estás actualizando correctamente los campos `payment_confirmed_bank`, `payment_confirmed_hand` y `payment_confirmed_total` en la tabla `payroll`?**
+   - Deben poder quedar en `true` aunque uno de los valores sea `0`.
+   - Si ambos están confirmados, recién ahí se debería generar el historial.
+
+2. **¿Estás creando bien el nuevo registro en `payroll_details` al confirmar un pago completo?**
+   - Si no, necesito que lo hagas.
+   - Si hay error con la estructura de la tabla, avisame y te paso el SQL.
+
+3. **¿Estás mostrando correctamente ese historial en el frontend?**
+   - Porque en la vista no aparece nada, aunque en teoría el pago se haya confirmado.
+
+4. **¿Hay errores silenciosos en la consola que no estén mostrando nada útil?**
+   - Necesito saber si algo falla por un try/catch mal manejado o falta de logs.
+
+5. **Si hay algo que no entendés (estructura de tablas, nombres de columnas, lógica, valores posibles, etc.), preguntame lo que necesites.**
+   - Puedo pasarte código SQL, estructura JSON o lo que haga falta.
+
+---
+
+📌 **IMPORTANTE: No toques la lógica de generación de nóminas. Está funcionando perfectamente. Todo lo que arreglamos hasta ahora funciona y no quiero que se rompa.**
+
+Solo trabajemos sobre confirmación de pagos e historial.
+
+Gracias y quedo atento a tus preguntas si necesitás aclarar algo.
