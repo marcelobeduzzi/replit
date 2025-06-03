@@ -1,0 +1,35 @@
+INSTRUCCIONES COMPLETAS PARA GHOSTWRITER – MÓDULO DE LIQUIDACIONES
+
+RESUMEN DEL ESTADO ACTUAL:
+- El módulo de nómina está funcionando correctamente: generación, confirmación de pagos y visualización en el historial.
+- La tabla "payroll" y "payroll_details" no deben modificarse más.
+- Se detectó que los últimos cambios afectaron el historial de pagos de nóminas que ya funcionaba, y que además no se implementó la lógica funcional del módulo de liquidaciones.
+
+ERROR PRINCIPAL:
+- GhostWriter mezcló la lógica de nóminas y liquidaciones dentro de una sola visualización en la solapa “Historial de Pagos”.
+- Esto rompió el historial de pagos de nómina.
+- No se agregó el botón ni la función principal de “Generar Liquidaciones”.
+- Se agregó código no solicitado y sin funcionalidad activa (por ejemplo: promedio salarial, total mensual), lo cual está bien si no interfiere con nada más.
+
+INSTRUCCIONES FINALES:
+
+1. NUNCA MÁS TOCAR LAS LÓGICAS QUE YA FUNCIONAN (como lo es nómina). Si es necesario, copiar estructuras o diseños, pero NO MODIFICAR ni mezclar tablas ni lógica de payroll.
+
+2. HISTORIAL DE PAGOS:
+   ✅ Crear dos solapas separadas:
+     - “Historial de Pagos Nóminas”: simplemente renombrar la que ya existía y que funcionaba. Que vuelva a verse igual que antes.
+     - “Historial de Pagos Liquidaciones”: solapa nueva, que se conecta con la nueva tabla `liquidation_payment`.
+
+3. LIQUIDACIONES:
+   ✅ En la solapa “Liquidaciones”:
+     - Agregar un botón funcional que diga “Generar Liquidaciones”.
+     - Ese botón debe ejecutar una función independiente (no compartida con payroll) que recorra la tabla `pending_liquidations` y genere las filas en la nueva tabla `liquidation_payment`.
+     - El flujo es similar al de nómina: mostrar pagos pendientes, permitir confirmar pago, y moverlo al historial de liquidaciones.
+
+4. FRONTEND:
+   ✅ El diseño visual debe mantenerse consistente. No mezclar nómina con liquidaciones.
+   ✅ El análisis estadístico (empleados activos, promedio, total mensual) está bien, pero que no interfiera con lo funcional y que efectivamente se vean y carguen todos los datos que figuran disponibles alli.
+
+ACLARACIONES FINALES:
+- No usar `payroll_details` para guardar datos de liquidaciones. Usar la nueva tabla creada, liquidation_payments.
+- El sistema de pagos de liquidaciones debe funcionar en paralelo, sin alterar la lógica de nómina.
