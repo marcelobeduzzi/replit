@@ -357,7 +357,7 @@ export default function NominaPage() {
     try {
       console.log("Iniciando confirmación de pago para nómina:", selectedPayroll.id)
       console.log("Estados de pago seleccionados:", { isHandSalaryPaid, isBankSalaryPaid })
-      
+
       // Verificar que tenemos un ID válido
       if (!selectedPayroll.id) {
         throw new Error("ID de nómina no válido")
@@ -371,23 +371,21 @@ export default function NominaPage() {
       // Obtener valores actuales de salarios
       const handSalaryValue = selectedPayroll.finalHandSalary || selectedPayroll.final_hand_salary || 0
       const bankSalaryValue = selectedPayroll.bankSalary || selectedPayroll.bank_salary || 0
-      
+
       console.log("Valores de salarios:", { handSalaryValue, bankSalaryValue })
 
-      // Actualizar estados de pago individuales según lo marcado por el usuario
+      // Procesar pagos de forma secuencial
       if (isHandSalaryPaid) {
         console.log("Marcando pago en mano como pagado")
         await payrollService.updatePayrollStatus(selectedPayroll.id, "is_paid_hand", true)
-        
+
         // Solo crear registro en payroll_details si el monto es mayor a 0
         if (handSalaryValue > 0) {
           await payrollService.createPayrollDetail(selectedPayroll.id, {
-            type: "payment",
+            type: "addition",
             concept: "Pago en Mano",
             amount: handSalaryValue,
-            description: `Pago en efectivo - ${paymentMethod}`,
-            payment_method: paymentMethod,
-            payment_reference: paymentReference
+            description: `Pago en efectivo - ${paymentMethod}`
           })
           console.log(`Registro en payroll_details creado para pago en mano: ${handSalaryValue}`)
         } else {
@@ -398,16 +396,14 @@ export default function NominaPage() {
       if (isBankSalaryPaid) {
         console.log("Marcando pago en banco como pagado")
         await payrollService.updatePayrollStatus(selectedPayroll.id, "is_paid_bank", true)
-        
+
         // Solo crear registro en payroll_details si el monto es mayor a 0
         if (bankSalaryValue > 0) {
           await payrollService.createPayrollDetail(selectedPayroll.id, {
-            type: "payment",
+            type: "addition",
             concept: "Pago por Banco",
             amount: bankSalaryValue,
-            description: `Pago bancario - ${paymentMethod}`,
-            payment_method: paymentMethod,
-            payment_reference: paymentReference
+            description: `Pago bancario - ${paymentMethod}`
           })
           console.log(`Registro en payroll_details creado para pago en banco: ${bankSalaryValue}`)
         } else {
@@ -418,10 +414,33 @@ export default function NominaPage() {
       // Actualizar detalles de pago general
       await payrollService.updatePaymentDetails(selectedPayroll.id, paymentMethod, paymentReference)
 
-      toast({
-        title: "Pago confirmado",
-        description: "El estado de pago ha sido actualizado correctamente.",
-      })
+      // Verificar si ambos pagos están completados para pasar al historial
+      console.log("Verificando estado final de la nómina...")
+
+      // Obtener el estado actualizado de la nómina
+      const { data: updatedPayroll, error: fetchError } = await supabase
+        .from('payroll')
+        .select('is_paid, is_paid_hand, is_paid_bank')
+        .eq('id', selectedPayroll.id)
+        .single()
+
+      if (!fetchError && updatedPayroll) {
+        console.log("Estado final de la nómina:", updatedPayroll)
+
+        if (updatedPayroll.is_paid) {
+          console.log("✅ Nómina completamente pagada, pasando al historial")
+          toast({
+            title: "Pago completado",
+            description: "La nómina ha sido completamente pagada y se ha movido al historial.",
+          })
+        } else {
+          console.log("⏳ Nómina parcialmente pagada")
+          toast({
+            title: "Pago parcial confirmado",
+            description: "Se ha registrado el pago parcial. Confirme el pago restante para completar la nómina.",
+          })
+        }
+      }
 
       // Cerrar diálogo y recargar datos
       setIsPaymentDialogOpen(false)
@@ -614,7 +633,7 @@ export default function NominaPage() {
         if (row.original.employeeName) {
           return row.original.employeeName
         }
-        
+
         // Si no, buscar en la lista de empleados
         const employee = employees.find((e) => e.id === row.original.employeeId)
         if (employee) {
@@ -623,7 +642,7 @@ export default function NominaPage() {
           const lastName = employee.lastName || employee.last_name || ""
           return `${firstName} ${lastName}`.trim() || "Sin nombre"
         }
-        
+
         return "Desconocido"
       },
     },
@@ -1170,7 +1189,7 @@ export default function NominaPage() {
     }
   }
 
-    
+
 
 
   return (
@@ -1424,7 +1443,7 @@ export default function NominaPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Liquidaciones Finales</CardTitle>
-                <CardDescription>Liquidaciones pendientes por fin de relación laboral</CardDescription>
+                <CardDescription>Liquidaciones pendientes por fin de relación laboral</CardHeader>
               </CardHeader>
               <CardContent>
                 <DataTable

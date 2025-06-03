@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase/client'
 import { payrollService as dbPayroll } from './db/db-payroll'
 import { dbEmployees } from './db/db-employees'
@@ -71,7 +70,7 @@ class PayrollService {
 
       // 3. Calcular nóminas para cada empleado
       const payrollCalculations: PayrollCalculation[] = []
-      
+
       for (const employee of activeEmployees) {
         try {
           const calculation = await this.calculateEmployeePayroll(employee, period)
@@ -356,7 +355,7 @@ class PayrollService {
 
       // Verificar si la nómina está completamente pagada después de la actualización
       const isFullyPaid = await dbPayroll.isPayrollFullyPaid(payrollId)
-      
+
       if (isFullyPaid) {
         console.log(`✅ Nómina ${payrollId} completamente pagada, agregando al historial`)
         await this.addToPaymentHistory(payrollId, paymentMethod, paymentReference)
@@ -519,7 +518,7 @@ class PayrollService {
   async generatePayrolls(employeeIds: string[], month: number, year: number) {
     try {
       console.log(`Generando nóminas para ${employeeIds.length} empleados: ${month}/${year}`)
-      
+
       const generatedPayrolls = []
       let successCount = 0
       let errorCount = 0
@@ -527,7 +526,7 @@ class PayrollService {
       for (const employeeId of employeeIds) {
         try {
           console.log(`Generando nómina para empleado: ${employeeId}`)
-          
+
           // 1. Obtener datos del empleado
           const { data: employee, error: empError } = await supabase
             .from('employees')
@@ -569,11 +568,11 @@ class PayrollService {
           // 4. Calcular valores de nómina
           const handSalary = Number(employee.base_salary || 0)
           const bankSalary = Number(employee.bank_salary || 0)
-          
+
           // Calcular deducciones y adiciones basadas en asistencias
           let deductions = 0
           let additions = 0
-          
+
           if (attendances && attendances.length > 0) {
             // Calcular deducciones por faltas y llegadas tarde
             for (const attendance of attendances) {
@@ -667,7 +666,7 @@ class PayrollService {
   async forceRegeneratePayrolls(employeeIds: string[], month: number, year: number) {
     try {
       console.log(`Regenerando nóminas para ${employeeIds.length} empleados: ${month}/${year}`)
-      
+
       // 1. Eliminar detalles de nómina existentes primero
       const { data: existingPayrolls } = await supabase
         .from('payroll')
@@ -678,7 +677,7 @@ class PayrollService {
 
       if (existingPayrolls && existingPayrolls.length > 0) {
         const payrollIds = existingPayrolls.map(p => p.id)
-        
+
         // Eliminar detalles de nómina
         const { error: detailsError } = await supabase
           .from('payroll_details')
@@ -721,7 +720,7 @@ class PayrollService {
   async updatePayrollStatus(payrollId: string, field: string, value: any) {
     try {
       console.log(`Actualizando estado de pago - ID: ${payrollId}, Campo: ${field}, Valor: ${value}`)
-      
+
       if (!payrollId) {
         console.error('Error: payrollId es undefined o null')
         throw new Error('ID de nómina requerido')
@@ -741,7 +740,7 @@ class PayrollService {
       // No permitir actualizar is_paid directamente ya que es columna generada
       if (field === 'is_paid') {
         console.log('Campo is_paid es columna generada, omitiendo actualización directa')
-        
+
         // En su lugar, obtener el estado actual y verificar si debería estar completamente pagado
         const { data: currentPayroll, error: fetchError } = await supabase
           .from('payroll')
@@ -755,7 +754,7 @@ class PayrollService {
         }
 
         console.log('Estado actual de la nómina:', currentPayroll)
-        
+
         // La columna is_paid se actualizará automáticamente por ser generada
         // Solo retornamos los datos actuales
         return currentPayroll
