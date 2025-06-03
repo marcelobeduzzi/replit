@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase/client'
 
 export interface LiquidationPayment {
@@ -32,7 +31,7 @@ export interface PendingLiquidation {
 }
 
 class LiquidationPaymentsService {
-  
+
   /**
    * Obtiene liquidaciones pendientes (is_paid = false)
    */
@@ -45,7 +44,7 @@ class LiquidationPaymentsService {
           employees (
             first_name,
             last_name,
-            document_number
+            document_id
           )
         `)
         .eq('is_paid', false)
@@ -161,7 +160,7 @@ class LiquidationPaymentsService {
           employees (
             first_name,
             last_name,
-            document_number
+            document_id
           )
         `)
         .order('date', { ascending: false })

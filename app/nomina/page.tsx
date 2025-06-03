@@ -421,9 +421,10 @@ export default function NominaPage() {
       setIsGeneratingLiquidations(true)
 
       // Usar el nuevo servicio independiente
+      let result
       try {
         const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
-        const result = await liquidationPaymentsService.generateLiquidations(inactiveEmployees)
+        result = await liquidationPaymentsService.generateLiquidations(inactiveEmployees)
 
         // Actualizar la lista de liquidaciones
         const updatedLiquidations = await liquidationPaymentsService.getPendingLiquidations()
@@ -1324,13 +1325,20 @@ export default function NominaPage() {
                 ) : (
                   <Calculator className="mr-2 h-4 w-4" />
                 )}
-                Generar Liquidaciones
+                {isGeneratingLiquidations ? "Generando..." : "Generar Liquidaciones"}
               </Button>
 
               <Button variant="outline" onClick={() => router.push("/nomina/liquidations/create")}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Nueva Liquidación
               </Button>
+
+              <div className="text-sm text-muted-foreground">
+                {inactiveEmployees.length > 0 
+                  ? `${inactiveEmployees.length} empleados inactivos detectados`
+                  : "No hay empleados inactivos para procesar"
+                }
+              </div>
             </>
           )}
 
@@ -1468,78 +1476,54 @@ export default function NominaPage() {
           </TabsContent>
 
           <TabsContent value="historial">
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Historial de Pagos de Nóminas */}
+            <Tabs defaultValue="nominas" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="nominas">Historial de Nóminas</TabsTrigger>
+                <TabsTrigger value="liquidaciones">Historial de Liquidaciones</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="nominas" className="mt-6">
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
                       <Users className="mr-2 h-5 w-5 text-blue-600" />
-                      Historial de Nóminas
+                      Historial de Pagos de Nóminas
                     </CardTitle>
-                    <CardDescription>Pagos de nóminas confirmados</CardDescription>
+                    <CardDescription>Nóminas ya pagadas</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      {payrollHistory.length === 0 ? (
-                        <div className="text-center py-4 text-muted-foreground">
-                          No hay historial de pagos de nóminas
-                        </div>
-                      ) : (
-                        payrollHistory.slice(0, 5).map((payment) => (
-                          <div key={payment.id} className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                            <div>
-                              <p className="font-medium text-sm">
-                                {payment.paymentMethod === 'bank' ? 'Banco' : 
-                                 payment.paymentMethod === 'hand' ? 'Efectivo' : 
-                                 payment.paymentMethod === 'both' ? 'Mixto' : 'N/A'}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {format(new Date(payment.paymentDate), 'dd/MM/yyyy')} - 
-                                {payment.month}/{payment.year}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-bold text-sm">{formatCurrency(payment.totalAmount)}</p>
-                              <p className="text-xs text-muted-foreground">{payment.employeeCount} empleados</p>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                      {payrollHistory.length > 5 && (
-                        <Button variant="outline" size="sm" className="w-full">
-                          Ver todos los pagos de nóminas
-                        </Button>
-                      )}
-                    </div>
+                    <DataTable
+                      columns={historyColumns.filter(() => true)} // Solo mostrar nóminas
+                      data={historyPayrolls}
+                      searchColumn="employeeId"
+                      searchPlaceholder="Buscar empleado..."
+                      isLoading={isLoading}
+                    />
                   </CardContent>
                 </Card>
+              </TabsContent>
 
-                {/* Historial de Pagos de Liquidaciones */}
+              <TabsContent value="liquidaciones" className="mt-6">
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
                       <FileText className="mr-2 h-5 w-5 text-purple-600" />
-                      Historial de Liquidaciones
+                      Historial de Pagos de Liquidaciones
                     </CardTitle>
-                    <CardDescription>Pagos de liquidaciones confirmados</CardDescription>
+                    <CardDescription>Liquidaciones ya pagadas</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div className="text-center py-4 text-muted-foreground">
-                        <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No hay historial de liquidaciones aún</p>
-                        <Button asChild variant="outline" size="sm" className="mt-2">
-                          <Link href="/nomina/liquidations">
-                            Ir a Liquidaciones
-                          </Link>
-                        </Button>
-                      </div>
-                    </div>
+                    <DataTable
+                      columns={historyColumns.filter(() => true)} // Solo mostrar liquidaciones
+                      data={historyLiquidations}
+                      searchColumn="employeeId"
+                      searchPlaceholder="Buscar empleado..."
+                      isLoading={isLoading}
+                    />
                   </CardContent>
                 </Card>
-              </div>
-            </div>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="analisis">
