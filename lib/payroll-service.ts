@@ -855,8 +855,6 @@ class PayrollService {
         concept: detail.concept,
         amount: detail.amount,
         notes: detail.description || null, // Usar 'notes' en lugar de 'description'
-        payment_method: detail.payment_method || null,
-        payment_reference: detail.payment_reference || null,
         date: new Date().toISOString(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
