@@ -738,9 +738,39 @@ class PayrollService {
         throw new Error(`Valor para ${field} es requerido`)
       }
 
+      // No permitir actualizar is_paid directamente ya que es columna generada
+      if (field === 'is_paid') {
+        console.log('Campo is_paid es columna generada, omitiendo actualización directa')
+        
+        // En su lugar, obtener el estado actual y verificar si debería estar completamente pagado
+        const { data: currentPayroll, error: fetchError } = await supabase
+          .from('payroll')
+          .select('is_paid_hand, is_paid_bank, hand_salary, bank_salary, final_hand_salary')
+          .eq('id', payrollId)
+          .single()
+
+        if (fetchError) {
+          console.error('Error obteniendo nómina actual:', fetchError)
+          throw new Error(`Error obteniendo datos actuales: ${fetchError.message}`)
+        }
+
+        console.log('Estado actual de la nómina:', currentPayroll)
+        
+        // La columna is_paid se actualizará automáticamente por ser generada
+        // Solo retornamos los datos actuales
+        return currentPayroll
+      }
+
       const updateData = {
         [field]: value,
         updated_at: new Date().toISOString()
+      }
+
+      // Agregar fecha de pago si corresponde
+      if (field === 'is_paid_hand' && value === true) {
+        updateData.hand_payment_date = new Date().toISOString()
+      } else if (field === 'is_paid_bank' && value === true) {
+        updateData.bank_payment_date = new Date().toISOString()
       }
 
       console.log('Datos a enviar a Supabase:', updateData)
@@ -793,6 +823,52 @@ class PayrollService {
       return data
     } catch (error) {
       console.error('Error en updatePaymentDetails:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Crea un registro de detalle en payroll_details
+   */
+  async createPayrollDetail(payrollId: string, detail: {
+    type: string
+    concept: string
+    amount: number
+    description?: string
+    payment_method?: string
+    payment_reference?: string
+  }) {
+    try {
+      console.log(`Creando registro en payroll_details para nómina ${payrollId}:`, detail)
+
+      const detailData = {
+        payroll_id: payrollId,
+        type: detail.type,
+        concept: detail.concept,
+        amount: detail.amount,
+        description: detail.description || null,
+        payment_method: detail.payment_method || null,
+        payment_reference: detail.payment_reference || null,
+        date: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+
+      const { data, error } = await supabase
+        .from('payroll_details')
+        .insert([detailData])
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error creando detalle de nómina:', error)
+        throw error
+      }
+
+      console.log('Detalle de nómina creado exitosamente:', data)
+      return data
+    } catch (error) {
+      console.error('Error en createPayrollDetail:', error)
       throw error
     }
   }
