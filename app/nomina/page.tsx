@@ -1066,59 +1066,7 @@ export default function NominaPage() {
     }
   }
 
-    const handlePaymentConfirmation = async () => {
-    if (!selectedPayroll || !paymentMethod) {
-      toast({
-        title: "Error",
-        description: "Seleccione un método de pago",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      console.log(`💰 Confirmando pago para nómina: ${selectedPayroll.id}`)
-
-      // Usar el servicio de payroll directamente
-      const response = await fetch('/api/payroll/confirm-payment', {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          payrollId: selectedPayroll.id,
-          paymentMethod,
-          paymentReference,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok && data.success) {
-        toast({
-          title: "Pago confirmado",
-          description: "El pago ha sido registrado correctamente",
-        })
-        setIsPaymentDialogOpen(false)
-        setSelectedPayroll(null)
-        setPaymentMethod("")
-        setPaymentReference("")
-        await fetchPayrollData() // Recargar datos
-      } else {
-        console.error('Error confirmando pago:', data)
-        toast({
-          title: "Error",
-          description: data.error || "Error al confirmar el pago",
-          variant: "destructive",
-        })
-      }
-    } catch (error: any) {
-      console.error("Error al confirmar pago:", error)
-      toast({
-        title: "Error",
-        description: `Error de conexión: ${error.message}`,
-        variant: "destructive",
-      })
-    }
-  }
+    
 
 
   return (
