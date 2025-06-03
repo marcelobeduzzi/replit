@@ -952,6 +952,173 @@ export default function NominaPage() {
   const currentYear = new Date().getFullYear()
   const years = Array.from({ length: 6 }, (_, i) => currentYear - i)
 
+    const [selectedPeriod, setSelectedPeriod] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [payrollData, setPayrollData] = useState([]);
+
+    const fetchPayrollData = async () => {
+    try {
+      setIsLoading(true);
+      const [historyPayrollsData, historyLiquidationsData] = await Promise.all([
+        payrollService.getPayrolls(selectedMonth, selectedYear, true),
+        dbService.getLiquidations(true)
+      ]);
+
+      setHistoryPayrolls(historyPayrollsData);
+      setHistoryLiquidations(historyLiquidationsData);
+    } catch (error) {
+      console.error("Error al cargar datos:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los datos. Intente nuevamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+    const handlePeriodChange = (e) => {
+    setSelectedPeriod(e.target.value);
+  };
+
+  const handleGeneratePayroll = async () => {
+    try {
+      setIsGenerating(true)
+
+      console.log(`🔄 Generando nóminas para período: ${selectedPeriod}`)
+
+      const response = await fetch("/api/payroll/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ period: selectedPeriod, regenerate: false }),
+      })
+
+      const data = await response.json()
+
+      console.log('Respuesta de la API:', data)
+
+      if (response.ok && data.success) {
+        toast({
+          title: "Éxito",
+          description: data.message || "Nóminas generadas correctamente",
+        })
+        await fetchPayrollData() // Recargar datos
+      } else {
+        console.error('Error en la respuesta:', data)
+        toast({
+          title: "Error",
+          description: data.error || "Error al generar nóminas",
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
+      console.error("Error al generar nóminas:", error)
+      toast({
+        title: "Error",
+        description: `Error de conexión: ${error.message}`,
+        variant: "destructive",
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleRegeneratePayroll = async () => {
+    try {
+      setIsGenerating(true)
+
+      console.log(`🔄 Regenerando nóminas para período: ${selectedPeriod}`)
+
+      const response = await fetch("/api/payroll/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ period: selectedPeriod, regenerate: true }),
+      })
+
+      const data = await response.json()
+
+      console.log('Respuesta de regeneración:', data)
+
+      if (response.ok && data.success) {
+        toast({
+          title: "Éxito",
+          description: data.message || "Nóminas regeneradas correctamente",
+        })
+        await fetchPayrollData() // Recargar datos
+      } else {
+        console.error('Error en la regeneración:', data)
+        toast({
+          title: "Error",
+          description: data.error || "Error al regenerar nóminas",
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
+      console.error("Error al regenerar nóminas:", error)
+      toast({
+        title: "Error",
+        description: `Error de conexión: ${error.message}`,
+        variant: "destructive",
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+    const handlePaymentConfirmation = async () => {
+    if (!selectedPayroll || !paymentMethod) {
+      toast({
+        title: "Error",
+        description: "Seleccione un método de pago",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      console.log(`💰 Confirmando pago para nómina: ${selectedPayroll.id}`)
+
+      // Usar el servicio de payroll directamente
+      const response = await fetch('/api/payroll/confirm-payment', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          payrollId: selectedPayroll.id,
+          paymentMethod,
+          paymentReference,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        toast({
+          title: "Pago confirmado",
+          description: "El pago ha sido registrado correctamente",
+        })
+        setIsPaymentDialogOpen(false)
+        setSelectedPayroll(null)
+        setPaymentMethod("")
+        setPaymentReference("")
+        await fetchPayrollData() // Recargar datos
+      } else {
+        console.error('Error confirmando pago:', data)
+        toast({
+          title: "Error",
+          description: data.error || "Error al confirmar el pago",
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
+      console.error("Error al confirmar pago:", error)
+      toast({
+        title: "Error",
+        description: `Error de conexión: ${error.message}`,
+        variant: "destructive",
+      })
+    }
+  }
 
 
   return (
