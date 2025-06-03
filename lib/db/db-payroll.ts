@@ -176,6 +176,8 @@ export class PayrollService extends DatabaseServiceBase {
 
       // Si estamos buscando nóminas pagadas, filtrar por is_paid=true y por mes/año
       if (isPaid) {
+        // Para nóminas pagadas, la base de datos calculará automáticamente is_paid=true
+        // cuando tanto is_paid_hand como is_paid_bank sean true
         query = query.eq("is_paid", true)
 
         // Para nóminas pagadas, también filtramos por mes y año
@@ -183,8 +185,8 @@ export class PayrollService extends DatabaseServiceBase {
           query = query.eq("month", month).eq("year", year)
         }
       } else {
-        // Para nóminas pendientes, solo filtramos por is_paid=false
-        // No filtramos por mes/año para mostrar todas las pendientes
+        // Para nóminas pendientes, buscamos donde is_paid=false
+        // Esto será automáticamente false cuando al menos uno de is_paid_hand o is_paid_bank sea false
         query = query.eq("is_paid", false)
       }
 
@@ -307,21 +309,27 @@ export class PayrollService extends DatabaseServiceBase {
         // Pago de banco
         updateData.is_paid_bank = true
         updateData.bank_payment_date = new Date().toISOString()
+        console.log("Marcando pago de banco como completado")
       }
 
       if (payroll.paymentType === "hand" || payroll.handSalaryPaid) {
         // Pago en mano
         updateData.is_paid_hand = true
         updateData.hand_payment_date = new Date().toISOString()
+        console.log("Marcando pago en mano como completado")
       }
 
-      if (payroll.paymentType === "all") {
+      if (payroll.paymentType === "all" || payroll.paymentType === "both") {
         // Pago total (banco y mano)
         updateData.is_paid_bank = true
         updateData.is_paid_hand = true
         updateData.bank_payment_date = new Date().toISOString()
         updateData.hand_payment_date = new Date().toISOString()
+        console.log("Marcando ambos pagos como completados")
       }
+
+      // IMPORTANTE: Nunca tocar is_paid ya que es una columna generada
+      // La base de datos calculará automáticamente is_paid = (is_paid_hand AND is_paid_bank)
 
       // Procesar campos de salario si se proporcionan
       if (payroll.handSalary !== undefined) {
@@ -539,6 +547,42 @@ export class PayrollService extends DatabaseServiceBase {
     } catch (error) {
       console.error("Error al obtener nóminas por empleado y período:", error)
       throw new Error("Error al obtener nóminas por empleado y período")
+    }
+  }
+
+  /**
+   * Verifica si una nómina está completamente pagada
+   * Este método verifica el estado calculado de is_paid
+   * @param payrollId ID de la nómina
+   * @returns true si está completamente pagada
+   */
+  async isPayrollFullyPaid(payrollId: string): Promise<boolean> {
+    try {
+      const { data, error } = await this.supabase
+        .from("payroll")
+        .select("is_paid, is_paid_hand, is_paid_bank")
+        .eq("id", payrollId)
+        .single()
+
+      if (error) {
+        console.error("Error al verificar estado de pago:", error)
+        return false
+      }
+
+      // Verificar tanto el valor calculado como los componentes individuales
+      const isFullyPaid = data.is_paid && data.is_paid_hand && data.is_paid_bank
+      
+      console.log(`Nómina ${payrollId} - Estado de pago:`, {
+        is_paid: data.is_paid,
+        is_paid_hand: data.is_paid_hand,
+        is_paid_bank: data.is_paid_bank,
+        fully_paid: isFullyPaid
+      })
+
+      return isFullyPaid
+    } catch (error) {
+      console.error("Error al verificar estado de pago:", error)
+      return false
     }
   }
 }

@@ -616,12 +616,19 @@ export default function NominaPage() {
       accessorKey: "status",
       header: "Estado",
       cell: ({ row }) => {
-        if (row.original.isPaid) {
-          return <StatusBadge status="Pagado" className="bg-green-100 text-green-800" />
-        } else if (row.original.handSalaryPaid && !row.original.bankSalaryPaid) {
+        // Usar los campos correctos del API
+        const isPaid = row.original.isPaid || row.original.is_paid
+        const isHandPaid = row.original.isPaidHand || row.original.is_paid_hand
+        const isBankPaid = row.original.isPaidBank || row.original.is_paid_bank
+
+        if (isPaid) {
+          return <StatusBadge status="Pagado Completo" className="bg-green-100 text-green-800" />
+        } else if (isHandPaid && !isBankPaid) {
           return <StatusBadge status="Mano Pagado" className="bg-yellow-100 text-yellow-800" />
-        } else if (!row.original.handSalaryPaid && row.original.bankSalaryPaid) {
+        } else if (!isHandPaid && isBankPaid) {
           return <StatusBadge status="Banco Pagado" className="bg-yellow-100 text-yellow-800" />
+        } else if (isHandPaid && isBankPaid) {
+          return <StatusBadge status="Pagado Completo" className="bg-green-100 text-green-800" />
         } else {
           return <StatusBadge status="Pendiente" className="bg-red-100 text-red-800" />
         }

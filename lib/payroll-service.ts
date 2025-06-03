@@ -306,6 +306,8 @@ class PayrollService {
       final_bank_salary: calc.finalBankSalary,
       total_salary: calc.totalSalary,
       presentism_bonus: calc.presentismBonus,
+      is_paid_hand: false,
+      is_paid_bank: false,
       status: 'pending',
       payment_method: 'pending',
       payment_reference: null,
@@ -352,8 +354,15 @@ class PayrollService {
         return { success: false, error: error.message }
       }
 
-      // Aquí podrías agregar lógica para registrar en historial de pagos
-      await this.addToPaymentHistory(payrollId, paymentMethod, paymentReference)
+      // Verificar si la nómina está completamente pagada después de la actualización
+      const isFullyPaid = await dbPayroll.isPayrollFullyPaid(payrollId)
+      
+      if (isFullyPaid) {
+        console.log(`✅ Nómina ${payrollId} completamente pagada, agregando al historial`)
+        await this.addToPaymentHistory(payrollId, paymentMethod, paymentReference)
+      } else {
+        console.log(`⏳ Nómina ${payrollId} parcialmente pagada, aún pendiente`)
+      }
 
       return { success: true }
 
@@ -601,7 +610,6 @@ class PayrollService {
             additions: Math.round(additions),
             final_hand_salary: Math.round(finalHandSalary),
             total_salary: Math.round(totalSalary),
-            is_paid: false,
             is_paid_hand: false,
             is_paid_bank: false,
             has_attendance_bonus: false,
