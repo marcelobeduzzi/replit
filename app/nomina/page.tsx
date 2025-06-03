@@ -49,6 +49,7 @@ import { supabase } from "@/lib/supabase/client"
 import { payrollService } from "@/lib/payroll-service"
 import { useAuth } from "@/lib/auth-context"
 import { format } from "date-fns"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 export default function NominaPage() {
   const { user, isLoading: authLoading } = useAuth()
@@ -149,6 +150,15 @@ export default function NominaPage() {
   const [liquidationTotals, setLiquidationTotals] = useState({
     totalAmount: 0,
   })
+
+  // Calcular totales globales para análisis
+  const totals = {
+    totalSalary: employees.reduce((sum, emp) => sum + Number(emp.baseSalary || 0), 0),
+    totalEmployees: employees.length,
+    averageSalary: employees.length > 0 
+      ? employees.reduce((sum, emp) => sum + Number(emp.baseSalary || 0), 0) / employees.length 
+      : 0
+  }
 
   useEffect(() => {
     if (user) {
@@ -251,16 +261,21 @@ export default function NominaPage() {
 
       // Cargar historial usando el servicio con cache
       if (activeTab === "historial") {
+        let historyPayrollsData: any[] = []
+        let historyLiquidationsData: any[] = []
+
         try {
           const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
-          const [historyPayrollsData, historyLiquidationsData] = await Promise.all([
+          const [payrollData, liquidationData] = await Promise.all([
             payrollService.getPayrolls(selectedMonth, selectedYear, true),
             liquidationPaymentsService.getLiquidationPaymentsHistory()
           ])
+          historyPayrollsData = payrollData
+          historyLiquidationsData = liquidationData
         } catch (importError) {
           console.error('Error importando servicio de liquidaciones para historial:', importError)
-          const historyPayrollsData = await payrollService.getPayrolls(selectedMonth, selectedYear, true)
-          const historyLiquidationsData: any[] = []
+          historyPayrollsData = await payrollService.getPayrolls(selectedMonth, selectedYear, true)
+          historyLiquidationsData = []
         }
 
         setHistoryPayrolls(historyPayrollsData)
