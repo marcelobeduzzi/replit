@@ -159,6 +159,44 @@ class LiquidationPaymentsService {
   }
 
   /**
+   * Obtiene estadísticas de liquidaciones
+   */
+  async getLiquidationsStats(): Promise<{ 
+    totalPaid: number; 
+    totalCount: number; 
+    averageAmount: number; 
+    lastPayment?: string 
+  }> {
+    try {
+      const { data, error } = await supabase
+        .from('liquidation_payments')
+        .select('amount, date')
+        .order('date', { ascending: false })
+
+      if (error) {
+        console.error('Error obteniendo estadísticas de liquidaciones:', error)
+        throw error
+      }
+
+      const payments = data || []
+      const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0)
+      const totalCount = payments.length
+      const averageAmount = totalCount > 0 ? totalPaid / totalCount : 0
+      const lastPayment = payments.length > 0 ? payments[0].date : undefined
+
+      return {
+        totalPaid,
+        totalCount,
+        averageAmount,
+        lastPayment
+      }
+    } catch (error) {
+      console.error('Error en getLiquidationsStats:', error)
+      throw error
+    }
+  }
+
+  /**
    * Genera liquidaciones automáticamente para empleados inactivos
    */
   async generateLiquidations(inactiveEmployees: any[]): Promise<{ generated: number; updated: number; skipped: number }> {

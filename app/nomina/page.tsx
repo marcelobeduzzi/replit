@@ -1,7 +1,7 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/app/dashboard-layout"
 import { Button } from "@/components/ui/button"
@@ -26,6 +26,8 @@ import {
   CreditCard,
   Wallet,
   Filter,
+  Users,
+  TrendingUp,
 } from "lucide-react"
 import {
   Dialog,
@@ -44,9 +46,9 @@ import { Badge } from "@/components/ui/badge"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { Employee, Payroll, Liquidation, Attendance } from "@/types"
 import { supabase } from "@/lib/supabase/client"
-import Link from "next/link"
 import { payrollService } from "@/lib/payroll-service"
 import { useAuth } from "@/lib/auth-context"
+import { format } from "date-fns"
 
 export default function NominaPage() {
   const { user, isLoading: authLoading } = useAuth()
@@ -122,6 +124,7 @@ export default function NominaPage() {
   const [attendances, setAttendances] = useState<Attendance[]>([])
   const [isLoadingAttendances, setIsLoadingAttendances] = useState(false)
   const [historyFilter, setHistoryFilter] = useState<"all" | "payroll" | "liquidation">("all")
+  const [payrollHistory, setPayrollHistory] = useState<any[]>([])
 
   // Estados para el diálogo de pago
   const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split("T")[0])
@@ -283,6 +286,54 @@ export default function NominaPage() {
       })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const loadLiquidations = async () => {
+    try {
+      console.log("Cargando liquidaciones...")
+      const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
+      const liquidationsData = await liquidationPaymentsService.generateLiquidations([])
+      console.log("Liquidaciones cargadas:", liquidationsData)
+
+      // Por ahora mostramos datos mock hasta que esté implementado
+      setLiquidations([])
+      setLiquidationTotals({
+        totalAmount: 0,
+      })
+    } catch (error) {
+      console.error("Error al cargar liquidaciones:", error)
+    }
+  }
+
+  const loadPayrollHistory = async () => {
+    try {
+      const supabase = createClientComponentClient()
+
+      // Cargar historial de pagos de nóminas confirmados
+      const { data: payrollPayments, error } = await supabase
+        .from('payroll_details')
+        .select(`
+          id,
+          payment_date,
+          payment_method,
+          total_amount,
+          month,
+          year,
+          employee_count
+        `)
+        .not('payment_date', 'is', null)
+        .order('payment_date', { ascending: false })
+        .limit(10)
+
+      if (error) {
+        console.error('Error al cargar historial de nóminas:', error)
+        return
+      }
+
+      setPayrollHistory(payrollPayments || [])
+    } catch (error) {
+      console.error('Error al cargar historial de pagos:', error)
     }
   }
 
@@ -451,7 +502,7 @@ export default function NominaPage() {
         if (updatedPayroll.is_paid) {
           console.log("✅ Nómina completamente pagada, actualizando detalles finales")
           await payrollService.updatePaymentDetails(selectedPayroll.id, paymentMethod, paymentReference)
-          
+
           // Crear un registro resumen en payroll_details con el total completo
           const totalAmount = handSalaryValue + bankSalaryValue
           if (totalAmount > 0) {
@@ -463,7 +514,7 @@ export default function NominaPage() {
             })
             console.log(`Registro resumen creado en payroll_details con total: ${totalAmount}`)
           }
-          
+
           toast({
             title: "Pago completado",
             description: "La nómina ha sido completamente pagada y se ha movido al historial.",
@@ -498,7 +549,7 @@ export default function NominaPage() {
     try {
       // Usar el nuevo servicio independiente
       const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
-      
+
       const result = await liquidationPaymentsService.confirmLiquidationPayment(
         selectedLiquidation.id,
         {
@@ -820,7 +871,8 @@ export default function NominaPage() {
     {
       accessorKey: "terminationDate",
       header: "Fecha de Egreso",
-      cell: ({ row }) => formatDate(row.original.terminationDate),
+      cell: ({ row }) =>```text
+formatDate(row.original.terminationDate),
     },
     {
       accessorKey: "workedDays",
@@ -1276,11 +1328,12 @@ export default function NominaPage() {
         </div>
 
         <Tabs defaultValue="pendientes" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="pendientes">Pagos Pendientes</TabsTrigger>
-            <TabsTrigger value="liquidaciones">Liquidaciones</TabsTrigger>
-            <TabsTrigger value="historial">Historial de Pagos</TabsTrigger>
-          </TabsList>
+          <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="pendientes">Pagos Pendientes</TabsTrigger>
+          <TabsTrigger value="liquidaciones">Liquidaciones</TabsTrigger>
+          <TabsTrigger value="historial">Historial de Pagos</TabsTrigger>
+          <TabsTrigger value="analisis">Análisis</TabsTrigger>
+        </TabsList>
 
           <TabsContent value="pendientes">
             {/* Totalizador de nóminas pendientes */}
@@ -1381,25 +1434,133 @@ export default function NominaPage() {
           </TabsContent>
 
           <TabsContent value="historial">
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Historial de Pagos de Nóminas */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Users className="mr-2 h-5 w-5 text-blue-600" />
+                      Historial de Nóminas
+                    </CardTitle>
+                    <CardDescription>Pagos de nóminas confirmados</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {payrollHistory.length === 0 ? (
+                        <div className="text-center py-4 text-muted-foreground">
+                          No hay historial de pagos de nóminas
+                        </div>
+                      ) : (
+                        payrollHistory.slice(0, 5).map((payment) => (
+                          <div key={payment.id} className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                            <div>
+                              <p className="font-medium text-sm">
+                                {payment.paymentMethod === 'bank' ? 'Banco' : 
+                                 payment.paymentMethod === 'hand' ? 'Efectivo' : 
+                                 payment.paymentMethod === 'both' ? 'Mixto' : 'N/A'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {format(new Date(payment.paymentDate), 'dd/MM/yyyy')} - 
+                                {payment.month}/{payment.year}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-sm">{formatCurrency(payment.totalAmount)}</p>
+                              <p className="text-xs text-muted-foreground">{payment.employeeCount} empleados</p>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                      {payrollHistory.length > 5 && (
+                        <Button variant="outline" size="sm" className="w-full">
+                          Ver todos los pagos de nóminas
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Historial de Pagos de Liquidaciones */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <FileText className="mr-2 h-5 w-5 text-purple-600" />
+                      Historial de Liquidaciones
+                    </CardTitle>
+                    <CardDescription>Pagos de liquidaciones confirmados</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="text-center py-4 text-muted-foreground">
+                        <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No hay historial de liquidaciones aún</p>
+                        <Button asChild variant="outline" size="sm" className="mt-2">
+                          <Link href="/nomina/liquidations">
+                            Ir a Liquidaciones
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="analisis">
             <Card>
               <CardHeader>
-                <CardTitle>Historial de Pagos</CardTitle>
-                <CardDescription>
-                  {historyFilter === "all"
-                    ? "Todos los pagos realizados (nóminas y liquidaciones)"
-                    : historyFilter === "payroll"
-                      ? "Nóminas mensuales pagadas"
-                      : "Liquidaciones finales pagadas"}
-                </CardDescription>
+                <CardTitle>Análisis de Nómina</CardTitle>
+                <CardDescription>Estadísticas y tendencias de pagos</CardDescription>
               </CardHeader>
               <CardContent>
-                <DataTable
-                  columns={historyColumns}
-                  data={filteredHistory}
-                  searchColumn="employeeId"
-                  searchPlaceholder="Buscar empleado..."
-                  isLoading={isLoading}
-                />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center">
+                        <Users className="h-4 w-4 text-blue-600" />
+                        <span className="ml-2 text-sm font-medium">Empleados Activos</span>
+                      </div>
+                      <div className="text-2xl font-bold mt-2">{employees.length}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center">
+                        <DollarSign className="h-4 w-4 text-green-600" />
+                        <span className="ml-2 text-sm font-medium">Promedio Salarial</span>
+                      </div>
+                      <div className="text-2xl font-bold mt-2">
+                        {formatCurrency(
+                          employees.length > 0 
+                            ? employees.reduce((sum, emp) => sum + Number(emp.baseSalary || 0), 0) / employees.length 
+                            : 0
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center">
+                        <TrendingUp className="h-4 w-4 text-purple-600" />
+                        <span className="ml-2 text-sm font-medium">Total Mensual</span>
+                      </div>
+                      <div className="text-2xl font-bold mt-2">{formatCurrency(totals.totalSalary)}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 text-orange-600" />
+                        <span className="ml-2 text-sm font-medium">Período</span>
+                      </div>
+                      <div className="text-lg font-bold mt-2">
+                        {String(selectedMonth).padStart(2, "0")}/{selectedYear}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -1593,8 +1754,8 @@ export default function NominaPage() {
                       placeholder="Número de transferencia, cheque, etc."
                       value={paymentReference}
                       onChange={(e) => setPaymentReference(e.target.value)}
-                    />
-                  </div>
+                      />
+                    </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="liquidationPaymentNotes">Notas</Label>
