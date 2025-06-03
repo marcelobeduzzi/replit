@@ -504,17 +504,142 @@ class PayrollService {
     try {
       console.log(`Generando nóminas para ${employeeIds.length} empleados: ${month}/${year}`)
       
+      const generatedPayrolls = []
+      let successCount = 0
+      let errorCount = 0
+
       for (const employeeId of employeeIds) {
         try {
-          // Aquí iría la lógica de generación de nómina para cada empleado
           console.log(`Generando nómina para empleado: ${employeeId}`)
-          // TODO: Implementar lógica de cálculo de nómina
+          
+          // 1. Obtener datos del empleado
+          const { data: employee, error: empError } = await supabase
+            .from('employees')
+            .select('*')
+            .eq('id', employeeId)
+            .single()
+
+          if (empError || !employee) {
+            console.error(`Error obteniendo empleado ${employeeId}:`, empError)
+            errorCount++
+            continue
+          }
+
+          // 2. Verificar si ya existe nómina para este período
+          const { data: existingPayroll } = await supabase
+            .from('payroll')
+            .select('id')
+            .eq('employee_id', employeeId)
+            .eq('month', month)
+            .eq('year', year)
+            .single()
+
+          if (existingPayroll) {
+            console.log(`Nómina ya existe para empleado ${employeeId} en ${month}/${year}`)
+            continue
+          }
+
+          // 3. Obtener asistencias del período
+          const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0]
+          const endDate = new Date(year, month, 0).toISOString().split('T')[0]
+
+          const { data: attendances } = await supabase
+            .from('attendance')
+            .select('*')
+            .eq('employee_id', employeeId)
+            .gte('date', startDate)
+            .lte('date', endDate)
+
+          // 4. Calcular valores de nómina
+          const handSalary = Number(employee.base_salary || 0)
+          const bankSalary = Number(employee.bank_salary || 0)
+          
+          // Calcular deducciones y adiciones basadas en asistencias
+          let deductions = 0
+          let additions = 0
+          
+          if (attendances && attendances.length > 0) {
+            // Calcular deducciones por faltas y llegadas tarde
+            for (const attendance of attendances) {
+              if (attendance.is_absent && !attendance.is_justified) {
+                // Deducción por día completo
+                deductions += handSalary / 30
+              }
+              if (attendance.late_minutes > 0) {
+                // Deducción por minutos tarde (valor por minuto)
+                deductions += attendance.late_minutes * 100
+              }
+              if (attendance.early_departure_minutes > 0) {
+                // Deducción por salida anticipada
+                deductions += attendance.early_departure_minutes * 100
+              }
+              if (attendance.extra_minutes > 0) {
+                // Adición por horas extra
+                const hourlyRate = handSalary / (30 * 8)
+                additions += (attendance.extra_minutes / 60) * hourlyRate * 1.5
+              }
+              if (attendance.is_holiday && !attendance.is_absent) {
+                // Adición por trabajar en feriado
+                additions += handSalary / 30
+              }
+            }
+          }
+
+          // 5. Calcular salarios finales
+          const finalHandSalary = Math.max(0, handSalary - deductions + additions)
+          const totalSalary = finalHandSalary + bankSalary
+
+          // 6. Crear registro de nómina
+          const payrollData = {
+            employee_id: employeeId,
+            month: month,
+            year: year,
+            base_salary: handSalary,
+            hand_salary: handSalary,
+            bank_salary: bankSalary,
+            deductions: Math.round(deductions),
+            additions: Math.round(additions),
+            final_hand_salary: Math.round(finalHandSalary),
+            total_salary: Math.round(totalSalary),
+            is_paid: false,
+            is_paid_hand: false,
+            is_paid_bank: false,
+            has_attendance_bonus: false,
+            attendance_bonus: 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+
+          const { data: newPayroll, error: payrollError } = await supabase
+            .from('payroll')
+            .insert([payrollData])
+            .select()
+            .single()
+
+          if (payrollError) {
+            console.error(`Error creando nómina para empleado ${employeeId}:`, payrollError)
+            errorCount++
+            continue
+          }
+
+          generatedPayrolls.push(newPayroll)
+          successCount++
+          console.log(`✅ Nómina creada para empleado ${employeeId}: Total ${totalSalary}`)
+
         } catch (error) {
           console.error(`Error generando nómina para empleado ${employeeId}:`, error)
+          errorCount++
         }
       }
 
-      return { success: true, generated: employeeIds.length }
+      console.log(`Generación completada: ${successCount} exitosas, ${errorCount} errores`)
+      return { 
+        success: true, 
+        generated: successCount, 
+        errors: errorCount,
+        payrolls: generatedPayrolls 
+      }
+
     } catch (error) {
       console.error('Error en generatePayrolls:', error)
       throw error
@@ -528,7 +653,31 @@ class PayrollService {
     try {
       console.log(`Regenerando nóminas para ${employeeIds.length} empleados: ${month}/${year}`)
       
-      // Eliminar nóminas existentes para el período
+      // 1. Eliminar detalles de nómina existentes primero
+      const { data: existingPayrolls } = await supabase
+        .from('payroll')
+        .select('id')
+        .eq('month', month)
+        .eq('year', year)
+        .in('employee_id', employeeIds)
+
+      if (existingPayrolls && existingPayrolls.length > 0) {
+        const payrollIds = existingPayrolls.map(p => p.id)
+        
+        // Eliminar detalles de nómina
+        const { error: detailsError } = await supabase
+          .from('payroll_details')
+          .delete()
+          .in('payroll_id', payrollIds)
+
+        if (detailsError) {
+          console.error('Error eliminando detalles de nóminas:', detailsError)
+        }
+
+        console.log(`Eliminados detalles de ${payrollIds.length} nóminas existentes`)
+      }
+
+      // 2. Eliminar nóminas existentes para el período
       const { error: deleteError } = await supabase
         .from('payroll')
         .delete()
@@ -538,9 +687,12 @@ class PayrollService {
 
       if (deleteError) {
         console.error('Error eliminando nóminas existentes:', deleteError)
+        throw deleteError
       }
 
-      // Generar nuevas nóminas
+      console.log(`Eliminadas nóminas existentes para ${employeeIds.length} empleados`)
+
+      // 3. Generar nuevas nóminas
       return await this.generatePayrolls(employeeIds, month, year)
     } catch (error) {
       console.error('Error en forceRegeneratePayrolls:', error)

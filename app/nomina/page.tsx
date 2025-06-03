@@ -265,21 +265,34 @@ export default function NominaPage() {
       // Obtener IDs de empleados activos
       const employeeIds = employees.map((emp) => emp.id)
 
+      if (employeeIds.length === 0) {
+        toast({
+          title: "Error",
+          description: "No hay empleados activos para generar nóminas.",
+          variant: "destructive",
+        })
+        return
+      }
+
       // Usar el servicio optimizado para generar nóminas en batch
-      await payrollService.generatePayrolls(employeeIds, selectedMonth, selectedYear)
+      const result = await payrollService.generatePayrolls(employeeIds, selectedMonth, selectedYear)
 
-      toast({
-        title: "Nóminas generadas",
-        description: "Las nóminas han sido generadas correctamente.",
-      })
+      if (result.success) {
+        toast({
+          title: "Nóminas generadas",
+          description: `Se generaron ${result.generated} nóminas correctamente${result.errors > 0 ? `. ${result.errors} errores.` : '.'}`,
+        })
 
-      // Recargar datos usando el cache
-      await loadData()
+        // Recargar datos usando el cache
+        await loadData()
+      } else {
+        throw new Error("La generación de nóminas falló")
+      }
     } catch (error) {
       console.error("Error al generar nóminas:", error)
       toast({
         title: "Error",
-        description: "No se pudieron generar las nóminas. Intente nuevamente.",
+        description: `No se pudieron generar las nóminas: ${error.message}`,
         variant: "destructive",
       })
     } finally {
