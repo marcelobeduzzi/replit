@@ -1,0 +1,154 @@
+Console.js:61 ./app/nomina/page.tsx
+Error:   × Unexpected token `DashboardLayout`. Expected jsx identifier
+      ╭─[/home/runner/workspace/app/nomina/page.tsx:1196:1]
+ 1193 │ 
+ 1194 │ 
+ 1195 │   return (
+ 1196 │     <DashboardLayout>
+      ·      ───────────────
+ 1197 │       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+ 1198 │         <div className="flex items-center justify-between">
+ 1199 │           <div>
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./app/nomina/page.tsx
+Mt.forEach.n.<computed> @ Console.js:61
+Console.js:61 [Fast Refresh] rebuilding
+Console.js:61 ./app/nomina/page.tsx
+Error:   × Unexpected token `DashboardLayout`. Expected jsx identifier
+      ╭─[/home/runner/workspace/app/nomina/page.tsx:1196:1]
+ 1193 │ 
+ 1194 │ 
+ 1195 │   return (
+ 1196 │     <DashboardLayout>
+      ·      ───────────────
+ 1197 │       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+ 1198 │         <div className="flex items-center justify-between">
+ 1199 │           <div>
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./app/nomina/page.tsx
+Mt.forEach.n.<computed> @ Console.js:61
+Console.js:61 [Fast Refresh] done in 472ms
+Console.js:61 [Fast Refresh] done in 1073ms
+Console.js:61 [Fast Refresh] done in 5493ms
+Console.js:61 [Fast Refresh] done in 11829ms
+Console.js:61 ./app/nomina/page.tsx
+Error:   × Unexpected token `DashboardLayout`. Expected jsx identifier
+      ╭─[/home/runner/workspace/app/nomina/page.tsx:1196:1]
+ 1193 │ 
+ 1194 │ 
+ 1195 │   return (
+ 1196 │     <DashboardLayout>
+      ·      ───────────────
+ 1197 │       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+ 1198 │         <div className="flex items-center justify-between">
+ 1199 │           <div>
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./app/nomina/page.tsx
+Mt.forEach.n.<computed> @ Console.js:61
+58a62295-699a-44c1-9c6b-bac992b8e7bc-00-31juxxdvs93id.janeway.replit.dev/nomina?_rsc=rxx9e:1 
+            
+            
+           Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+58a62295-699a-44c1-9c6b-bac992b8e7bc-00-31juxxdvs93id.janeway.replit.dev/_next/static/webpack/e0d423ff06e82658.webpack.hot-update.json:1 
+            
+            
+           Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+Console.js:61 [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree.
+Mt.forEach.n.<computed> @ Console.js:61
+58a62295-699a-44c1-9c6b-bac992b8e7bc-00-31juxxdvs93id.janeway.replit.dev/:1 
+            
+            
+           Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+inject.js:38 [yoroi/prod] dapp-connector is successfully injected into 58a62295-699a-44c1-9c6b-bac992b8e7bc-00-31juxxdvs93id.janeway.replit.dev
+index.tsx:943 Uncaught ModuleBuildError: Module build failed (from ./node_modules/next/dist/build/webpack/loaders/next-swc-loader.js):
+Error:   × Unexpected token `DashboardLayout`. Expected jsx identifier
+      ╭─[/home/runner/workspace/app/nomina/page.tsx:1196:1]
+ 1193 │ 
+ 1194 │ 
+ 1195 │   return (
+ 1196 │     <DashboardLayout>
+      ·      ───────────────
+ 1197 │       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+ 1198 │         <div className="flex items-center justify-between">
+ 1199 │           <div>
+      ╰────
+
+
+Caused by:
+    Syntax Error
+    at processResult (/home/runner/workspace/node_modules/next/dist/compiled/webpack/bundle5.js:29:407111)
+    at <unknown> (/home/runner/workspace/node_modules/next/dist/compiled/webpack/bundle5.js:29:408906)
+    at <unknown> (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:8645)
+    at <unknown> (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:5019)
+    at r.callback (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:4039)
+getServerError @ node-stack-frames.ts:40
+eval @ index.tsx:943
+setTimeout
+hydrate @ index.tsx:921
+await in hydrate
+pageBootstrap @ page-bootstrap.ts:22
+eval @ next-dev.ts:19
+Promise.then
+eval @ next-dev.ts:18
+(pages-dir-browser)/./node_modules/next/dist/client/next-dev.js @ main.js:1447
+options.factory @ webpack.js:675
+__webpack_require__ @ webpack.js:37
+__webpack_exec__ @ main.js:2593
+(anonymous) @ main.js:2594
+webpackJsonpCallback @ webpack.js:1351
+(anonymous) @ main.js:9
+workspace_iframe.html?initialPath=%2F&id=%3Ar12d%3A:142 
+            
+            
+           GET https://replit.com/public/js/beacon.js net::ERR_BLOCKED_BY_CLIENT
+onIframeLoad @ workspace_iframe.html?initialPath=%2F&id=%3Ar12d%3A:142
+Console.js:61 [HMR] connected
+Console.js:61 ./app/nomina/page.tsx
+Error:   × Unexpected token `DashboardLayout`. Expected jsx identifier
+      ╭─[/home/runner/workspace/app/nomina/page.tsx:1196:1]
+ 1193 │ 
+ 1194 │ 
+ 1195 │   return (
+ 1196 │     <DashboardLayout>
+      ·      ───────────────
+ 1197 │       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+ 1198 │         <div className="flex items-center justify-between">
+ 1199 │           <div>
+      ╰────
+
+Caused by:
+    Syntax Error
+Mt.forEach.n.<computed> @ Console.js:61
+nextJsHandleConsoleError @ client.ts:62
+handleErrors @ hot-reloader-client.ts:206
+processMessage @ hot-reloader-client.ts:333
+eval @ hot-reloader-client.ts:84
+handleMessage @ websocket.ts:67
+Console.js:61 [HMR] Invalid message: {"action":"isrManifest","data":{"/login":true}}
+TypeError: Cannot read properties of undefined (reading '__N_SSP')
+    at handleStaticIndicator (webpack-internal:///(pages-dir-browser)/./node_modules/next/dist/client/components/react-dev-overlay/pages/hot-reloader-client.js:229:124)
+    at processMessage (webpack-internal:///(pages-dir-browser)/./node_modules/next/dist/client/components/react-dev-overlay/pages/hot-reloader-client.js:244:17)
+    at eval (webpack-internal:///(pages-dir-browser)/./node_modules/next/dist/client/components/react-dev-overlay/pages/hot-reloader-client.js:70:13)
+    at WebSocket.handleMessage (webpack-internal:///(pages-dir-browser)/./node_modules/next/dist/client/components/react-dev-overlay/pages/websocket.js:65:17)
