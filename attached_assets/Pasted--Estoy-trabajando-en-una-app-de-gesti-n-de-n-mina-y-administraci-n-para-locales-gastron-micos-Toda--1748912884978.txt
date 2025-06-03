@@ -1,0 +1,98 @@
+
+Estoy trabajando en una app de gestión de nómina y administración para locales gastronómicos. Toda la lógica y sistema están cargados en este mismo proyecto de Replit.
+
+Quiero que me ayudes a revisar, corregir y reestructurar completamente (si es necesario) la lógica de la sección Nóminas, incluyendo:
+
+🔹 Generación de nóminas  
+🔹 Regeneración de nóminas  
+🔹 Cálculo de pagos a empleados activos y liquidaciones  
+(Los empleados activos aparecen como active o inactive en la columna status de la tabla employees.  
+Si están "active", se les debería generar la nómina cuando se lo pide a través del botón "Generar Nómina".  
+Si están "inactive", deben tener fecha de egreso y se debería calcular su liquidación con el botón "Generar Liquidaciones".)
+
+Al generar las nóminas de empleados activos, se debe considerar las adiciones o deducciones que surgen desde el registro de asistencias, en la tabla attendance.  
+Entre el sueldo en mano, el sueldo en banco, las adiciones, las deducciones y el posible bono por presentismo (si corresponde, según lógica ya cargada en el sistema), se calculan los sueldos de empleados activos a pagar a principios de cada mes.  
+Toda esta lógica ya está plasmada en el sistema actual, pero no está de más que revises bajo tu criterio si está bien implementada o si encontrás errores o formas de mejorar la funcionalidad.
+
+Lo que dejó de funcionar en algún momento es la generación de nóminas, que tira diversos errores.  
+
+🔹 Exportación a PDF o Excel  
+🔹 Confirmación de pagos y guardado en historial  
+(Cuando se confirma el pago en mano y el pago en banco también, se pasa el valor del pago total al historial de pagos.  
+Deberíamos tener la opción de exportación a PDF con todos los datos completos del mismo).
+
+---
+
+## 🧠 CONTEXTO FUNCIONAL
+
+La sección de nóminas trabaja así:
+1. Debe detectar todos los empleados activos (desde la tabla employees).
+2. Sobre esos empleados, genera una nómina mensual, que incluye:
+   - Sueldo base (sueldo en banco + sueldo en mano)
+   - Deducciones por llegadas tarde o faltas (vienen de asistencias)
+   - Adiciones por feriados trabajados (también desde asistencias)
+
+Tanto las deducciones como las adiciones deben descontar o sumar dinero en base al valor del minuto estipulado en la lógica actual, y aplicarse únicamente sobre el valor de sueldo en mano.  
+Esto dará como resultado el valor de sueldo en mano final (final_hand_salary en la tabla payroll).  
+Resultado final: sueldo total a pagar (dividido en banco y en mano).
+
+3. Luego, el usuario puede confirmar el pago (por banco, mano o ambos).
+4. Eso debería quedar reflejado como pago confirmado en la tabla de historial.
+5. Todo debe poder ser exportado con detalle por mes.
+
+---
+
+## ⚙️ ARCHIVOS INVOLUCRADOS (o posiblemente conectados)
+
+No conozco todos los archivos exactos que están vinculados a esta sección, pero deberían estar en estas rutas y estructuras del proyecto:
+
+- lib/payroll-service.ts → Lógica principal para generar las nóminas  
+- lib/db/db-payroll.ts → Base de datos Supabase (query a empleados, nóminas, etc.)  
+- lib/db/db-core.ts  
+- lib/types.ts → Tipos definidos para empleados, pagos, nóminas  
+- pages/nómina.tsx → Vista o interfaz principal de nóminas  
+- Cualquier middleware, API route (pages/api/) o hook relacionado a payroll  
+- Puede haber otros archivos involucrados que yo desconozca  
+
+Necesito que detectes todos los archivos relacionados directa o indirectamente, aunque yo no los haya mencionado. Pueden haber componentes o funciones duplicadas, mal llamados o con lógica desactualizada.
+
+⚠️ En este caso necesito enfocarme en la parte de nóminas activas y no en liquidaciones. Eso lo haremos como segundo paso.
+
+---
+
+## ❌ ERRORES ACTUALES
+
+1. El botón "Generar Nómina" no hace nada actualmente (no da feedback ni error).
+2. Tampoco funciona "Regenerar Nómina", que debería eliminar la anterior del mes y rehacerla.
+3. Ya no sé qué funciona y qué no, porque probablemente los últimos cambios hayan desincronizado algunas lógicas.
+4. Es probable que ahora también esté fallando el botón de "Confirmar Pago", y que no se estén guardando los pagos en la tabla de historial.
+5. En algunos momentos aparecían errores como `console.log(...) is not a function`, otros de Supabase (por claves no definidas), y errores silenciosos en el navegador sin información en la consola visible desde Preview.
+
+---
+
+## ✅ LO QUE NECESITO
+
+Quiero que:
+- Analices profundamente toda la lógica y los archivos vinculados a nóminas.
+- Corrijas cualquier error actual, especialmente los que impiden generar o confirmar nóminas.
+- Verifiques que:
+   - Se toman los empleados activos correctamente  
+   - Se traen correctamente los datos de asistencias  
+   - Se hacen bien los cálculos de sueldo  
+   - Se graban correctamente los datos en la base de datos  
+   - Se puede confirmar el pago  
+   - Se genera un historial de pagos  
+   - Todo se puede exportar correctamente
+
+Además, indicame cómo puedo probar correctamente cada cosa (dónde ver errores, consola, etc.).
+
+Por último, si encontrás archivos duplicados, inconsistencias en nombres de variables, uso incorrecto de tipos o estructuras que puedan causar errores a futuro, avisame así los ordenamos bien.
+
+---
+
+## 📝 Aclaraciones finales
+
+- Ya están cargadas las claves de Supabase en los Secrets.
+- Estoy usando el sistema desde dos computadoras distintas (oficina y casa) pero todo está centralizado en Replit, no edito desde GitHub ni localmente.
+- Podés usar la consola, el entorno de ejecución o cualquier herramienta interna para detectar errores y probar.
+- Tené libertad de reestructurar lo que creas necesario siempre que no rompa otras secciones del sistema, como empleados, asistencias u home.
