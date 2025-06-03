@@ -766,11 +766,13 @@ class PayrollService {
         updated_at: new Date().toISOString()
       }
 
-      // Agregar fecha de pago si corresponde
+      // Agregar fecha de pago si corresponde - SIEMPRE cuando se marca como pagado
       if (field === 'is_paid_hand' && value === true) {
         updateData.hand_payment_date = new Date().toISOString()
+        console.log('Agregando fecha de pago en mano')
       } else if (field === 'is_paid_bank' && value === true) {
         updateData.bank_payment_date = new Date().toISOString()
+        console.log('Agregando fecha de pago en banco')
       }
 
       console.log('Datos a enviar a Supabase:', updateData)
@@ -840,6 +842,12 @@ class PayrollService {
   }) {
     try {
       console.log(`Creando registro en payroll_details para nómina ${payrollId}:`, detail)
+
+      // Validar que el monto sea positivo
+      if (detail.amount <= 0) {
+        console.log(`Saltando creación de detalle porque el monto es ${detail.amount} (debe ser > 0)`)
+        return null
+      }
 
       const detailData = {
         payroll_id: payrollId,

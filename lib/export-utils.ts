@@ -369,18 +369,29 @@ export const generatePayslip = (payroll: Payroll, employee: Employee) => {
       ["Sueldo Banco", "Haber", formatCurrency(payroll.bankSalary)],
     ]
 
-    // Agregar deducciones
+    // Agregar deducciones y adiciones calculadas de asistencias
+    if (payroll.deductions && payroll.deductions > 0) {
+      tableRows.push(["Deducciones por Asistencias", "Deducción", `- ${formatCurrency(payroll.deductions)}`])
+    }
+    
+    if (payroll.additions && payroll.additions > 0) {
+      tableRows.push(["Adiciones por Asistencias", "Adición", formatCurrency(payroll.additions)])
+    }
+
+    // Agregar bono de presentismo si aplica
+    if (payroll.hasAttendanceBonus && payroll.attendanceBonus && payroll.attendanceBonus > 0) {
+      tableRows.push(["Bono de Presentismo", "Adición", formatCurrency(payroll.attendanceBonus)])
+    }
+
+    // Agregar detalles adicionales de payroll_details
     if (payroll.details && Array.isArray(payroll.details)) {
       payroll.details.forEach((detail) => {
         if (detail.type === "deduction") {
           tableRows.push([detail.concept, "Deducción", `- ${formatCurrency(detail.amount)}`])
-        }
-      })
-
-      // Agregar adiciones
-      payroll.details.forEach((detail) => {
-        if (detail.type === "addition") {
+        } else if (detail.type === "addition") {
           tableRows.push([detail.concept, "Adición", formatCurrency(detail.amount)])
+        } else if (detail.type === "payment") {
+          tableRows.push([detail.concept, "Pago", formatCurrency(detail.amount)])
         }
       })
     }

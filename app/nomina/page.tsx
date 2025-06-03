@@ -363,62 +363,60 @@ export default function NominaPage() {
         throw new Error("ID de nómina no válido")
       }
 
+      // Verificar que al menos uno de los pagos fue marcado
+      if (!isHandSalaryPaid && !isBankSalaryPaid) {
+        throw new Error("Debe marcar al menos uno de los tipos de pago")
+      }
+
       // Obtener valores actuales de salarios
       const handSalaryValue = selectedPayroll.finalHandSalary || selectedPayroll.final_hand_salary || 0
       const bankSalaryValue = selectedPayroll.bankSalary || selectedPayroll.bank_salary || 0
       
       console.log("Valores de salarios:", { handSalaryValue, bankSalaryValue })
 
-      // Validar que al menos uno de los pagos tenga valor mayor a 0
-      if (handSalaryValue === 0 && bankSalaryValue === 0) {
-        throw new Error("No hay montos a pagar para este empleado")
-      }
-
-      // Actualizar estados de pago individuales
-      if (isHandSalaryPaid && handSalaryValue > 0) {
+      // Actualizar estados de pago individuales según lo marcado por el usuario
+      if (isHandSalaryPaid) {
         console.log("Marcando pago en mano como pagado")
         await payrollService.updatePayrollStatus(selectedPayroll.id, "is_paid_hand", true)
         
-        // Crear registro en payroll_details para pago en mano
-        await payrollService.createPayrollDetail(selectedPayroll.id, {
-          type: "payment",
-          concept: "Pago en Mano",
-          amount: handSalaryValue,
-          description: `Pago en efectivo - ${paymentMethod}`,
-          payment_method: paymentMethod,
-          payment_reference: paymentReference
-        })
+        // Solo crear registro en payroll_details si el monto es mayor a 0
+        if (handSalaryValue > 0) {
+          await payrollService.createPayrollDetail(selectedPayroll.id, {
+            type: "payment",
+            concept: "Pago en Mano",
+            amount: handSalaryValue,
+            description: `Pago en efectivo - ${paymentMethod}`,
+            payment_method: paymentMethod,
+            payment_reference: paymentReference
+          })
+          console.log(`Registro en payroll_details creado para pago en mano: ${handSalaryValue}`)
+        } else {
+          console.log("Pago en mano marcado como pagado pero monto es 0 - no se crea detalle")
+        }
       }
 
-      if (isBankSalaryPaid && bankSalaryValue > 0) {
+      if (isBankSalaryPaid) {
         console.log("Marcando pago en banco como pagado")
         await payrollService.updatePayrollStatus(selectedPayroll.id, "is_paid_bank", true)
         
-        // Crear registro en payroll_details para pago en banco
-        await payrollService.createPayrollDetail(selectedPayroll.id, {
-          type: "payment",
-          concept: "Pago por Banco",
-          amount: bankSalaryValue,
-          description: `Pago bancario - ${paymentMethod}`,
-          payment_method: paymentMethod,
-          payment_reference: paymentReference
-        })
+        // Solo crear registro en payroll_details si el monto es mayor a 0
+        if (bankSalaryValue > 0) {
+          await payrollService.createPayrollDetail(selectedPayroll.id, {
+            type: "payment",
+            concept: "Pago por Banco",
+            amount: bankSalaryValue,
+            description: `Pago bancario - ${paymentMethod}`,
+            payment_method: paymentMethod,
+            payment_reference: paymentReference
+          })
+          console.log(`Registro en payroll_details creado para pago en banco: ${bankSalaryValue}`)
+        } else {
+          console.log("Pago en banco marcado como pagado pero monto es 0 - no se crea detalle")
+        }
       }
 
-      // Verificar si el pago está completo
-      // - Si hay sueldo en mano (> 0) debe estar marcado como pagado
-      // - Si hay sueldo en banco (> 0) debe estar marcado como pagado
-      // - Si un sueldo es 0, se considera automáticamente "pagado"
-      const handPaymentComplete = handSalaryValue === 0 || isHandSalaryPaid
-      const bankPaymentComplete = bankSalaryValue === 0 || isBankSalaryPaid
-      
-      console.log("Estados de pago completo:", { handPaymentComplete, bankPaymentComplete })
-      
-      // Actualizar detalles de pago si está completo
-      if (handPaymentComplete && bankPaymentComplete) {
-        console.log("Pago completado, actualizando detalles de pago")
-        await payrollService.updatePaymentDetails(selectedPayroll.id, paymentMethod, paymentReference)
-      }
+      // Actualizar detalles de pago general
+      await payrollService.updatePaymentDetails(selectedPayroll.id, paymentMethod, paymentReference)
 
       toast({
         title: "Pago confirmado",
