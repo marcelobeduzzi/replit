@@ -552,8 +552,21 @@ export default function NominaPage() {
       accessorKey: "employeeId",
       header: "Empleado",
       cell: ({ row }) => {
+        // Primero intentar usar employeeName si está disponible (viene del join)
+        if (row.original.employeeName) {
+          return row.original.employeeName
+        }
+        
+        // Si no, buscar en la lista de empleados
         const employee = employees.find((e) => e.id === row.original.employeeId)
-        return employee ? `${employee.firstName} ${employee.lastName}` : "Desconocido"
+        if (employee) {
+          // Usar los campos correctos de la base de datos
+          const firstName = employee.firstName || employee.first_name || ""
+          const lastName = employee.lastName || employee.last_name || ""
+          return `${firstName} ${lastName}`.trim() || "Sin nombre"
+        }
+        
+        return "Desconocido"
       },
     },
     {
@@ -676,7 +689,13 @@ export default function NominaPage() {
       header: "Empleado",
       cell: ({ row }) => {
         const employee = [...employees, ...inactiveEmployees].find((e) => e.id === row.original.employeeId)
-        return employee ? `${employee.firstName} ${employee.lastName}` : "Desconocido"
+        if (employee) {
+          // Usar los campos correctos de la base de datos
+          const firstName = employee.firstName || employee.first_name || ""
+          const lastName = employee.lastName || employee.last_name || ""
+          return `${firstName} ${lastName}`.trim() || "Sin nombre"
+        }
+        return "Desconocido"
       },
     },
     {
@@ -870,7 +889,13 @@ export default function NominaPage() {
       cell: ({ row }) => {
         const allEmployees = [...employees, ...inactiveEmployees]
         const employee = allEmployees.find((e) => e.id === row.original.employeeId)
-        return employee ? `${employee.firstName} ${employee.lastName}` : "Desconocido"
+        if (employee) {
+          // Usar los campos correctos de la base de datos
+          const firstName = employee.firstName || employee.first_name || ""
+          const lastName = employee.lastName || employee.last_name || ""
+          return `${firstName} ${lastName}`.trim() || "Sin nombre"
+        }
+        return "Desconocido"
       },
     },
     {

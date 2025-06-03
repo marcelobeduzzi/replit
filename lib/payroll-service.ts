@@ -487,7 +487,14 @@ class PayrollService {
         throw error
       }
 
-      return data || []
+      // Asegurar que los nombres estén mapeados correctamente para compatibilidad
+      const mappedData = (data || []).map(employee => ({
+        ...employee,
+        firstName: employee.first_name,
+        lastName: employee.last_name,
+      }))
+
+      return mappedData
     } catch (error) {
       console.error('Error en getEmployees:', error)
       throw error

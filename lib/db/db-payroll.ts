@@ -237,7 +237,10 @@ export class PayrollService extends DatabaseServiceBase {
 
         // Añadir nombre completo del empleado para facilitar la visualización
         if (payroll.employee) {
-          payroll.employeeName = `${payroll.employee.firstName || ""} ${payroll.employee.lastName || ""}`.trim()
+          // Corregir el mapeo: usar first_name y last_name de la base de datos
+          const firstName = payroll.employee.firstName || payroll.employee.first_name || ""
+          const lastName = payroll.employee.lastName || payroll.employee.last_name || ""
+          payroll.employeeName = `${firstName} ${lastName}`.trim()
         }
 
         console.log("Nómina procesada:", {
