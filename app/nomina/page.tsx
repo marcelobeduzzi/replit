@@ -868,8 +868,7 @@ export default function NominaPage() {
             <PlusCircle className="mr-1 h-4 w-4" />
             Bono
           </Button>
-        </div>
-      ),
+        </div>      ),
     },
   ]
 
@@ -892,8 +891,7 @@ export default function NominaPage() {
     {
       accessorKey: "terminationDate",
       header: "Fecha de Egreso",
-      cell: ({ row }) =>```text
-formatDate(row.original.terminationDate),
+      cell: ({ row }) => formatDate(row.original.terminationDate),
     },
     {
       accessorKey: "workedDays",
