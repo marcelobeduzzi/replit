@@ -232,13 +232,21 @@ export default function NominaPage() {
           : correctedPayrolls.filter((p) => p.month === selectedMonth && p.year === selectedYear)
 
         setFilteredPayrolls(filtered)
+
+        // Cargar liquidaciones pendientes usando el nuevo servicio
+        if (activeTab === "liquidaciones") {
+          const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
+          const pendingLiquidations = await liquidationPaymentsService.getPendingLiquidations()
+          setLiquidations(pendingLiquidations)
+        }
       }
 
       // Cargar historial usando el servicio con cache
       if (activeTab === "historial") {
+        const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
         const [historyPayrollsData, historyLiquidationsData] = await Promise.all([
           payrollService.getPayrolls(selectedMonth, selectedYear, true),
-          dbService.getLiquidations(true)
+          liquidationPaymentsService.getLiquidationPaymentsHistory()
         ])
 
         setHistoryPayrolls(historyPayrollsData)
@@ -335,11 +343,12 @@ export default function NominaPage() {
     try {
       setIsGeneratingLiquidations(true)
 
-      // Generar liquidaciones para empleados inactivos
-      const result = await dbService.generateLiquidations(inactiveEmployees)
+      // Usar el nuevo servicio independiente
+      const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
+      const result = await liquidationPaymentsService.generateLiquidations(inactiveEmployees)
 
       // Actualizar la lista de liquidaciones
-      const updatedLiquidations = await dbService.getLiquidations(false)
+      const updatedLiquidations = await liquidationPaymentsService.getPendingLiquidations()
       setLiquidations(updatedLiquidations)
 
       toast({
@@ -487,31 +496,37 @@ export default function NominaPage() {
     if (!selectedLiquidation) return
 
     try {
-      // Actualizar el estado de pago de la liquidación
-      const updatedLiquidation = {
-        ...selectedLiquidation,
-        isPaid: true,
-        paymentDate: paymentDate,
-        paymentMethod: paymentMethod,
-        paymentReference: paymentReference,
-        notes: paymentNotes,
+      // Usar el nuevo servicio independiente
+      const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
+      
+      const result = await liquidationPaymentsService.confirmLiquidationPayment(
+        selectedLiquidation.id,
+        {
+          amount: selectedLiquidation.totalAmount || selectedLiquidation.total_amount,
+          date: paymentDate,
+          concept: `Liquidación final - ${paymentMethod}`,
+          notes: paymentNotes
+        }
+      )
+
+      if (result.success) {
+        toast({
+          title: "Pago confirmado",
+          description: "La liquidación ha sido marcada como pagada correctamente.",
+        })
+
+        // Cerrar diálogo y recargar datos
+        setIsLiquidationPaymentDialogOpen(false)
+        loadData()
+      } else {
+        throw new Error(result.error || 'Error desconocido')
       }
-
-      await dbService.updateLiquidation(updatedLiquidation)
-
-      toast({
-        title: "Pago confirmado",
-        description: "La liquidación ha sido marcada como pagada correctamente.",
-      })
-
-      // Cerrar diálogo y recargar datos
-      setIsLiquidationPaymentDialogOpen(false)
-      loadData()
     } catch (error) {
       console.error("Error al confirmar pago de liquidación:", error)
       toast({
         title: "Error",
         description: "No se pudo confirmar el pago. Intente nuevamente.",
+        variant: "destructive",
       })
     }
   }
@@ -1120,18 +1135,7 @@ export default function NominaPage() {
             <p className="text-muted-foreground">Administra los pagos de salarios y liquidaciones</p>
           </div>
           <div className="flex items-center space-x-2">
-            <Button variant="outline" asChild onClick={preserveSession}>
-              <Link href="/diagnostico">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Volver a Diagnóstico
-              </Link>
-            </Button>
-            <Button variant="outline" asChild onClick={preserveSession}>
-              <Link href="/nomina/liquidations/migration">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Herramientas
-              </Link>
-            </Button>
+            {/* Botones eliminados según instrucciones */}
           </div>
         </div>
 
