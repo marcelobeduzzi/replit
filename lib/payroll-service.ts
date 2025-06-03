@@ -337,13 +337,12 @@ class PayrollService {
     paymentReference?: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      // Solo actualizar los campos que existen en la base de datos
       const { error } = await supabase
         .from('payroll')
         .update({
-          status: 'paid',
           payment_method: paymentMethod,
           payment_reference: paymentReference || null,
-          paid_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq('id', payrollId)
@@ -395,17 +394,25 @@ class PayrollService {
         return
       }
 
+      // Usar la fecha más reciente entre hand_payment_date y bank_payment_date
+      const paidAt = payrollData.bank_payment_date || payrollData.hand_payment_date || new Date().toISOString()
+
+      // Crear un período basado en mes y año si no existe
+      const period = payrollData.period || `${payrollData.year}-${payrollData.month.toString().padStart(2, '0')}`
+
       // Insertar en historial de pagos
       const historyRecord = {
         payroll_id: payrollId,
         employee_id: payrollData.employee_id,
-        period: payrollData.period,
+        period: period,
         amount: payrollData.total_salary,
         payment_method: paymentMethod,
         payment_reference: paymentReference || null,
-        paid_at: new Date().toISOString(),
+        paid_at: paidAt,
         created_at: new Date().toISOString()
       }
+
+      console.log('Creando registro en historial de pagos:', historyRecord)
 
       const { error: historyError } = await supabase
         .from('payment_history')
@@ -413,6 +420,8 @@ class PayrollService {
 
       if (historyError) {
         console.error('Error guardando en historial de pagos:', historyError)
+      } else {
+        console.log('✅ Registro agregado al historial de pagos exitosamente')
       }
 
     } catch (error) {
@@ -805,9 +814,10 @@ class PayrollService {
       const updateData = {
         payment_method: paymentMethod,
         payment_reference: paymentReference || null,
-        paid_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
+
+      console.log('Actualizando detalles de pago con datos:', updateData)
 
       const { data, error } = await supabase
         .from('payroll')
@@ -821,6 +831,7 @@ class PayrollService {
         throw error
       }
 
+      console.log('Detalles de pago actualizados correctamente:', data)
       return data
     } catch (error) {
       console.error('Error en updatePaymentDetails:', error)

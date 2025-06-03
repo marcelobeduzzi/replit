@@ -411,10 +411,7 @@ export default function NominaPage() {
         }
       }
 
-      // Actualizar detalles de pago general
-      await payrollService.updatePaymentDetails(selectedPayroll.id, paymentMethod, paymentReference)
-
-      // Verificar si ambos pagos están completados para pasar al historial
+      // Verificar si ambos pagos están completados
       console.log("Verificando estado final de la nómina...")
 
       // Obtener el estado actualizado de la nómina
@@ -427,8 +424,11 @@ export default function NominaPage() {
       if (!fetchError && updatedPayroll) {
         console.log("Estado final de la nómina:", updatedPayroll)
 
+        // Actualizar detalles de pago general solo si ambos pagos están completados
         if (updatedPayroll.is_paid) {
-          console.log("✅ Nómina completamente pagada, pasando al historial")
+          console.log("✅ Nómina completamente pagada, actualizando detalles finales")
+          await payrollService.updatePaymentDetails(selectedPayroll.id, paymentMethod, paymentReference)
+          
           toast({
             title: "Pago completado",
             description: "La nómina ha sido completamente pagada y se ha movido al historial.",
