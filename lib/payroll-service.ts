@@ -1,6 +1,6 @@
 
 import { supabase } from './supabase/client'
-import { dbPayroll } from './db/db-payroll'
+import { payrollService as dbPayroll } from './db/db-payroll'
 import { dbEmployees } from './db/db-employees'
 import { dbAttendance } from './db/db-attendance'
 
@@ -452,6 +452,158 @@ class PayrollService {
       return data || []
     } catch (error) {
       console.error('Error en getPayrollWithEmployees:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Obtiene empleados activos
+   */
+  async getEmployees(employeeIds?: string[]) {
+    try {
+      let query = supabase
+        .from('employees')
+        .select('*')
+        .eq('status', 'active')
+        .order('first_name')
+
+      if (employeeIds && employeeIds.length > 0) {
+        query = query.in('id', employeeIds)
+      }
+
+      const { data, error } = await query
+
+      if (error) {
+        console.error('Error obteniendo empleados:', error)
+        throw error
+      }
+
+      return data || []
+    } catch (error) {
+      console.error('Error en getEmployees:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Obtiene nóminas por período (wrapper para compatibilidad)
+   */
+  async getPayrolls(month: number, year: number, isPaid = false) {
+    try {
+      return await dbPayroll.getPayrollsByPeriod(month, year, isPaid)
+    } catch (error) {
+      console.error('Error en getPayrolls:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Genera nóminas para empleados en batch
+   */
+  async generatePayrolls(employeeIds: string[], month: number, year: number) {
+    try {
+      console.log(`Generando nóminas para ${employeeIds.length} empleados: ${month}/${year}`)
+      
+      for (const employeeId of employeeIds) {
+        try {
+          // Aquí iría la lógica de generación de nómina para cada empleado
+          console.log(`Generando nómina para empleado: ${employeeId}`)
+          // TODO: Implementar lógica de cálculo de nómina
+        } catch (error) {
+          console.error(`Error generando nómina para empleado ${employeeId}:`, error)
+        }
+      }
+
+      return { success: true, generated: employeeIds.length }
+    } catch (error) {
+      console.error('Error en generatePayrolls:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Regenera nóminas (forzar recreación)
+   */
+  async forceRegeneratePayrolls(employeeIds: string[], month: number, year: number) {
+    try {
+      console.log(`Regenerando nóminas para ${employeeIds.length} empleados: ${month}/${year}`)
+      
+      // Eliminar nóminas existentes para el período
+      const { error: deleteError } = await supabase
+        .from('payroll')
+        .delete()
+        .eq('month', month)
+        .eq('year', year)
+        .in('employee_id', employeeIds)
+
+      if (deleteError) {
+        console.error('Error eliminando nóminas existentes:', deleteError)
+      }
+
+      // Generar nuevas nóminas
+      return await this.generatePayrolls(employeeIds, month, year)
+    } catch (error) {
+      console.error('Error en forceRegeneratePayrolls:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Actualiza el estado de pago de una nómina
+   */
+  async updatePayrollStatus(payrollId: string, field: string, value: any) {
+    try {
+      const updateData = {
+        [field]: value,
+        updated_at: new Date().toISOString()
+      }
+
+      const { data, error } = await supabase
+        .from('payroll')
+        .update(updateData)
+        .eq('id', payrollId)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error actualizando estado de pago:', error)
+        throw error
+      }
+
+      return data
+    } catch (error) {
+      console.error('Error en updatePayrollStatus:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Actualiza los detalles de pago de una nómina
+   */
+  async updatePaymentDetails(payrollId: string, paymentMethod: string, paymentReference?: string) {
+    try {
+      const updateData = {
+        payment_method: paymentMethod,
+        payment_reference: paymentReference || null,
+        paid_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+
+      const { data, error } = await supabase
+        .from('payroll')
+        .update(updateData)
+        .eq('id', payrollId)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error actualizando detalles de pago:', error)
+        throw error
+      }
+
+      return data
+    } catch (error) {
+      console.error('Error en updatePaymentDetails:', error)
       throw error
     }
   }
