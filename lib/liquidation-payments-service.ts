@@ -14,25 +14,27 @@ export interface LiquidationPayment {
 
 export interface PendingLiquidation {
   id: string
-  employee_id: string
-  termination_date: string
-  worked_days: number
-  proportional_vacation: number
-  proportional_bonus: number
-  compensation_amount: number
-  total_amount: number
-  include_vacation: boolean
-  include_bonus: boolean
-  processed: boolean
-  processed_at?: string
-  created_at: string
-  updated_at: string
+  employeeId: string
+  employeeName?: string
+  terminationDate: string
+  workedDays: number
+  proportionalVacation: number
+  proportionalBonus: number
+  compensationAmount: number
+  totalAmount: number
+  includeVacation: boolean
+  includeBonus: boolean
+  isPaid: boolean
+  paymentDate?: string
+  paymentMethod?: string
+  createdAt: string
+  updatedAt: string
 }
 
 class LiquidationPaymentsService {
   
   /**
-   * Obtiene liquidaciones pendientes (processed = false)
+   * Obtiene liquidaciones pendientes (is_paid = false)
    */
   async getPendingLiquidations(): Promise<PendingLiquidation[]> {
     try {
@@ -54,10 +56,28 @@ class LiquidationPaymentsService {
         throw error
       }
 
-      return data || []
+      // Convertir datos de snake_case a camelCase
+      return (data || []).map((item: any) => ({
+        id: item.id,
+        employeeId: item.employee_id,
+        employeeName: item.employees ? `${item.employees.first_name} ${item.employees.last_name}` : 'Sin nombre',
+        terminationDate: item.termination_date,
+        workedDays: item.worked_days || 0,
+        proportionalVacation: item.proportional_vacation || 0,
+        proportionalBonus: item.proportional_bonus || 0,
+        compensationAmount: item.compensation_amount || 0,
+        totalAmount: item.total_amount || 0,
+        includeVacation: item.include_vacation || true,
+        includeBonus: item.include_bonus || true,
+        isPaid: item.is_paid || false,
+        paymentDate: item.payment_date || undefined,
+        paymentMethod: item.payment_method || undefined,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at
+      }))
     } catch (error) {
       console.error('Error en getPendingLiquidations:', error)
-      throw error
+      return []
     }
   }
 
@@ -110,7 +130,7 @@ class LiquidationPaymentsService {
         .update({
           is_paid: true,
           payment_date: paymentData.date,
-          payment_method: 'transferencia', // Por defecto para liquidaciones
+          payment_method: 'transferencia',
           updated_at: new Date().toISOString()
         })
         .eq('id', liquidationId)
@@ -132,7 +152,7 @@ class LiquidationPaymentsService {
   /**
    * Obtiene historial de pagos de liquidaciones
    */
-  async getLiquidationPaymentsHistory(): Promise<LiquidationPayment[]> {
+  async getLiquidationPaymentsHistory(): Promise<any[]> {
     try {
       const { data, error } = await supabase
         .from('liquidation_payments')
@@ -151,48 +171,22 @@ class LiquidationPaymentsService {
         throw error
       }
 
-      return data || []
+      // Convertir a formato compatible con el historial
+      return (data || []).map((payment: any) => ({
+        id: payment.id,
+        employeeId: payment.employee_id,
+        employeeName: payment.employees ? `${payment.employees.first_name} ${payment.employees.last_name}` : 'Sin nombre',
+        amount: payment.amount,
+        totalAmount: payment.amount,
+        paymentDate: payment.date,
+        concept: payment.concept,
+        notes: payment.notes,
+        paymentMethod: 'transferencia',
+        type: 'liquidation'
+      }))
     } catch (error) {
       console.error('Error en getLiquidationPaymentsHistory:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Obtiene estadísticas de liquidaciones
-   */
-  async getLiquidationsStats(): Promise<{ 
-    totalPaid: number; 
-    totalCount: number; 
-    averageAmount: number; 
-    lastPayment?: string 
-  }> {
-    try {
-      const { data, error } = await supabase
-        .from('liquidation_payments')
-        .select('amount, date')
-        .order('date', { ascending: false })
-
-      if (error) {
-        console.error('Error obteniendo estadísticas de liquidaciones:', error)
-        throw error
-      }
-
-      const payments = data || []
-      const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0)
-      const totalCount = payments.length
-      const averageAmount = totalCount > 0 ? totalPaid / totalCount : 0
-      const lastPayment = payments.length > 0 ? payments[0].date : undefined
-
-      return {
-        totalPaid,
-        totalCount,
-        averageAmount,
-        lastPayment
-      }
-    } catch (error) {
-      console.error('Error en getLiquidationsStats:', error)
-      throw error
+      return []
     }
   }
 
@@ -250,11 +244,10 @@ class LiquidationPaymentsService {
     const baseSalary = Number(employee.base_salary || employee.baseSalary || 0)
 
     // Calcular días trabajados en el último mes
-    const today = new Date()
     const daysInLastMonth = terminationDate.getDate()
     const workedDays = Math.min(daysInLastMonth, 30)
 
-    // Calcular vacaciones proporcionales (días de vacaciones * salario diario)
+    // Calcular vacaciones proporcionales
     const vacationDays = this.calculateVacationDays(hireDate, terminationDate)
     const proportionalVacation = (baseSalary / 30) * vacationDays
 
@@ -262,7 +255,7 @@ class LiquidationPaymentsService {
     const monthsWorked = this.calculateMonthsWorked(hireDate, terminationDate)
     const proportionalBonus = (baseSalary / 12) * monthsWorked
 
-    // Calcular indemnización (1 mes por año trabajado)
+    // Calcular indemnización
     const yearsWorked = Math.floor(monthsWorked / 12)
     const compensationAmount = baseSalary * yearsWorked
 

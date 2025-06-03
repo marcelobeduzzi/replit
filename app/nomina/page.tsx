@@ -238,19 +238,30 @@ export default function NominaPage() {
 
         // Cargar liquidaciones pendientes usando el nuevo servicio
         if (activeTab === "liquidaciones") {
-          const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
-          const pendingLiquidations = await liquidationPaymentsService.getPendingLiquidations()
-          setLiquidations(pendingLiquidations)
+          try {
+            const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
+            const pendingLiquidations = await liquidationPaymentsService.getPendingLiquidations()
+            setLiquidations(pendingLiquidations)
+          } catch (importError) {
+            console.error('Error importando servicio de liquidaciones:', importError)
+            setLiquidations([])
+          }
         }
       }
 
       // Cargar historial usando el servicio con cache
       if (activeTab === "historial") {
-        const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
-        const [historyPayrollsData, historyLiquidationsData] = await Promise.all([
-          payrollService.getPayrolls(selectedMonth, selectedYear, true),
-          liquidationPaymentsService.getLiquidationPaymentsHistory()
-        ])
+        try {
+          const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
+          const [historyPayrollsData, historyLiquidationsData] = await Promise.all([
+            payrollService.getPayrolls(selectedMonth, selectedYear, true),
+            liquidationPaymentsService.getLiquidationPaymentsHistory()
+          ])
+        } catch (importError) {
+          console.error('Error importando servicio de liquidaciones para historial:', importError)
+          const historyPayrollsData = await payrollService.getPayrolls(selectedMonth, selectedYear, true)
+          const historyLiquidationsData: any[] = []
+        }
 
         setHistoryPayrolls(historyPayrollsData)
         setHistoryLiquidations(historyLiquidationsData)
@@ -395,12 +406,17 @@ export default function NominaPage() {
       setIsGeneratingLiquidations(true)
 
       // Usar el nuevo servicio independiente
-      const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
-      const result = await liquidationPaymentsService.generateLiquidations(inactiveEmployees)
+      try {
+        const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
+        const result = await liquidationPaymentsService.generateLiquidations(inactiveEmployees)
 
-      // Actualizar la lista de liquidaciones
-      const updatedLiquidations = await liquidationPaymentsService.getPendingLiquidations()
-      setLiquidations(updatedLiquidations)
+        // Actualizar la lista de liquidaciones
+        const updatedLiquidations = await liquidationPaymentsService.getPendingLiquidations()
+        setLiquidations(updatedLiquidations)
+      } catch (importError) {
+        console.error('Error importando servicio de liquidaciones:', importError)
+        throw new Error('Error al cargar el servicio de liquidaciones')
+      }
 
       toast({
         title: "Éxito",
@@ -548,17 +564,22 @@ export default function NominaPage() {
 
     try {
       // Usar el nuevo servicio independiente
-      const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
+      try {
+        const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
 
-      const result = await liquidationPaymentsService.confirmLiquidationPayment(
-        selectedLiquidation.id,
-        {
-          amount: selectedLiquidation.totalAmount || selectedLiquidation.total_amount,
-          date: paymentDate,
-          concept: `Liquidación final - ${paymentMethod}`,
-          notes: paymentNotes
-        }
-      )
+        const result = await liquidationPaymentsService.confirmLiquidationPayment(
+          selectedLiquidation.id,
+          {
+            amount: selectedLiquidation.totalAmount || selectedLiquidation.total_amount,
+            date: paymentDate,
+            concept: `Liquidación final - ${paymentMethod}`,
+            notes: paymentNotes
+          }
+        )
+      } catch (importError) {
+        console.error('Error importando servicio de liquidaciones:', importError)
+        throw new Error('Error al cargar el servicio de liquidaciones')
+      }
 
       if (result.success) {
         toast({
