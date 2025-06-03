@@ -344,19 +344,54 @@ export default function NominaPage() {
   }
 
   const handlePaymentConfirmation = async () => {
-    if (!selectedPayroll) return
+    if (!selectedPayroll) {
+      console.error("Error: selectedPayroll es null o undefined")
+      toast({
+        title: "Error",
+        description: "No se ha seleccionado una nómina válida.",
+        variant: "destructive",
+      })
+      return
+    }
 
     try {
+      console.log("Iniciando confirmación de pago para nómina:", selectedPayroll.id)
+      console.log("Estados de pago seleccionados:", { isHandSalaryPaid, isBankSalaryPaid })
+      
+      // Verificar que tenemos un ID válido
+      if (!selectedPayroll.id) {
+        throw new Error("ID de nómina no válido")
+      }
+
       // Actualizar el estado de pago de la nómina usando el servicio de nóminas
+      // Permitir confirmación de pagos even si uno de los valores es cero
       if (isHandSalaryPaid) {
+        console.log("Marcando pago en mano como pagado")
         await payrollService.updatePayrollStatus(selectedPayroll.id, "is_paid_hand", true)
       }
 
       if (isBankSalaryPaid) {
+        console.log("Marcando pago en banco como pagado")
         await payrollService.updatePayrollStatus(selectedPayroll.id, "is_paid_bank", true)
       }
 
-      if (isHandSalaryPaid && isBankSalaryPaid) {
+      // Verificar si ambos componentes están marcados como pagados para marcar el total como pagado
+      // Importante: también verificar si los valores originales son cero (en cuyo caso no se requiere marcar como pagado)
+      const handSalaryValue = selectedPayroll.finalHandSalary || selectedPayroll.final_hand_salary || 0
+      const bankSalaryValue = selectedPayroll.bankSalary || selectedPayroll.bank_salary || 0
+      
+      console.log("Valores de salarios:", { handSalaryValue, bankSalaryValue })
+      
+      // Determinar si el pago está completo:
+      // - Si hay sueldo en mano (> 0) y está marcado como pagado, O si no hay sueldo en mano (= 0)
+      // - Si hay sueldo en banco (> 0) y está marcado como pagado, O si no hay sueldo en banco (= 0)
+      const handPaymentComplete = handSalaryValue === 0 || isHandSalaryPaid
+      const bankPaymentComplete = bankSalaryValue === 0 || isBankSalaryPaid
+      
+      console.log("Estados de pago completo:", { handPaymentComplete, bankPaymentComplete })
+      
+      if (handPaymentComplete && bankPaymentComplete) {
+        console.log("Marcando nómina como completamente pagada")
         await payrollService.updatePayrollStatus(selectedPayroll.id, "is_paid", true)
         await payrollService.updatePaymentDetails(selectedPayroll.id, paymentMethod, paymentReference)
       }
@@ -371,9 +406,10 @@ export default function NominaPage() {
       loadData()
     } catch (error) {
       console.error("Error al confirmar pago:", error)
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido"
       toast({
         title: "Error",
-        description: "No se pudo confirmar el pago. Intente nuevamente.",
+        description: `No se pudo confirmar el pago: ${errorMessage}`,
         variant: "destructive",
       })
     }
@@ -657,10 +693,11 @@ export default function NominaPage() {
             size="sm"
             onClick={() => {
               setSelectedPayroll(row.original)
-              setIsHandSalaryPaid(row.original.handSalaryPaid)
-              setIsBankSalaryPaid(row.original.bankSalaryPaid)
-              setPaymentMethod(row.original.paymentMethod || "efectivo")
-              setPaymentReference(row.original.paymentReference || "")
+              // Usar los campos correctos de la base de datos
+              setIsHandSalaryPaid(row.original.is_paid_hand || row.original.isPaidHand || false)
+              setIsBankSalaryPaid(row.original.is_paid_bank || row.original.isPaidBank || false)
+              setPaymentMethod(row.original.payment_method || row.original.paymentMethod || "efectivo")
+              setPaymentReference(row.original.payment_reference || row.original.paymentReference || "")
               setIsPaymentDialogOpen(true)
             }}
           >
@@ -1964,10 +2001,11 @@ export default function NominaPage() {
                 <Button
                   onClick={() => {
                     setSelectedPayroll(selectedPayroll)
-                    setIsHandSalaryPaid(selectedPayroll.handSalaryPaid)
-                    setIsBankSalaryPaid(selectedPayroll.bankSalaryPaid)
-                    setPaymentMethod(selectedPayroll.paymentMethod || "efectivo")
-                    setPaymentReference(selectedPayroll.paymentReference || "")
+                    // Usar los campos correctos de la base de datos
+                    setIsHandSalaryPaid(selectedPayroll.is_paid_hand || selectedPayroll.isPaidHand || false)
+                    setIsBankSalaryPaid(selectedPayroll.is_paid_bank || selectedPayroll.isPaidBank || false)
+                    setPaymentMethod(selectedPayroll.payment_method || selectedPayroll.paymentMethod || "efectivo")
+                    setPaymentReference(selectedPayroll.payment_reference || selectedPayroll.paymentReference || "")
                     setIsDetailsDialogOpen(false)
                     setIsPaymentDialogOpen(true)
                   }}

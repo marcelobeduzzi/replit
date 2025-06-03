@@ -720,10 +720,30 @@ class PayrollService {
    */
   async updatePayrollStatus(payrollId: string, field: string, value: any) {
     try {
+      console.log(`Actualizando estado de pago - ID: ${payrollId}, Campo: ${field}, Valor: ${value}`)
+      
+      if (!payrollId) {
+        console.error('Error: payrollId es undefined o null')
+        throw new Error('ID de nómina requerido')
+      }
+
+      if (!field) {
+        console.error('Error: field es undefined o null')
+        throw new Error('Campo a actualizar requerido')
+      }
+
+      // Permitir valores cero explícitamente, solo rechazar undefined/null
+      if (value === undefined || value === null) {
+        console.error(`Error: valor para campo ${field} es undefined o null`)
+        throw new Error(`Valor para ${field} es requerido`)
+      }
+
       const updateData = {
         [field]: value,
         updated_at: new Date().toISOString()
       }
+
+      console.log('Datos a enviar a Supabase:', updateData)
 
       const { data, error } = await supabase
         .from('payroll')
@@ -733,10 +753,12 @@ class PayrollService {
         .single()
 
       if (error) {
-        console.error('Error actualizando estado de pago:', error)
-        throw error
+        console.error('Error de Supabase actualizando estado de pago:', error)
+        console.error('Detalles del error:', JSON.stringify(error, null, 2))
+        throw new Error(`Error de base de datos: ${error.message || 'Error desconocido'}`)
       }
 
+      console.log('Actualización exitosa:', data)
       return data
     } catch (error) {
       console.error('Error en updatePayrollStatus:', error)
