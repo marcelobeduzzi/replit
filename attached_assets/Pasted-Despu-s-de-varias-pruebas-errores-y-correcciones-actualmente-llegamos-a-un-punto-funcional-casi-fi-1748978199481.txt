@@ -1,0 +1,29 @@
+Después de varias pruebas, errores y correcciones, actualmente llegamos a un punto funcional casi finalizado con la sección de Nómina.
+
+🟢 ESTADO ACTUAL:
+- Al confirmar un pago (banco, mano o ambos), ya no arroja errores.
+- En la tabla `payroll_details` se generan correctamente los registros.
+- La tabla `payroll` también refleja los cambios (por ejemplo, se marca como pagado).
+- Los pagos se procesan incluso si uno de los dos valores (banco o mano) es cero, como debe ser.
+- Al confirmar ambos pagos, desaparecen de la sección de pagos pendientes, como corresponde.
+
+❌ PROBLEMA PENDIENTE:
+- El historial de pagos (frontend) **no muestra** los pagos confirmados.
+- En la tabla `payroll_details`, el monto parece NO ser la suma total de ambos (banco + mano), sino solo uno. Eso debería verificarse.
+
+🧠 ACLARACIONES IMPORTANTES:
+- El flujo esperado es: generar nómina (se crean registros en `payroll`) → confirmar pago desde frontend (uno, otro o ambos) → actualizar campos correspondientes en `payroll` → generar registros en `payroll_details` → reflejar en historial de pagos (frontend).
+- La lógica debe permitir confirmar un pago aunque uno de los dos valores (banco o mano) sea cero, ya que es común que uno de los dos no se utilice. Lo importante es que al hacer click, se tome como pagado, sin validar el monto.
+- Al marcarse ambos pagos como confirmados, se debe actualizar `is_paid` en `payroll`, y eso debe hacer que aparezca en historial de pagos.
+
+🛑 NO ROMPER:
+- Todo el circuito actual ya está funcionando. Por favor **no tocar** la lógica actual de cálculo de nómina ni deducciones ni adiciones.
+- No modificar funciones que ya están generando correctamente los pagos y los registros en `payroll_details`.
+
+✅ OBJETIVO FINAL:
+- Corregir para que:
+   1. Aparezcan los pagos confirmados en el historial del frontend.
+   2. Se sumen correctamente banco + mano en `payroll_details` si eso es lo que corresponde.
+   3. No haya validaciones de monto (puede ser cero).
+
+Consultanos cualquier duda sobre nombres de campos, tablas o estructura. Gracias.
