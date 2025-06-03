@@ -1,0 +1,73 @@
+
+📄 INSTRUCCIONES CLAVE PARA GHOSTWRITER – LIQUIDACIONES
+
+🛑 PRIORIDAD MÁXIMA: NO ROMPER NÓMINAS
+
+⚠️ Toda la sección de nómina ya funciona correctamente:
+- Generación de nóminas
+- Confirmación de pagos (por banco, en mano o ambos)
+- Registro en historial de pagos
+- Registro en payroll_details
+- Inclusión de adiciones y deducciones
+
+🔒 Esta sección queda totalmente cerrada y protegida.
+👉 Bajo ningún concepto debe modificarse la lógica, columnas, tablas o estructuras ya establecidas para nómina.
+
+—
+
+✅ NUEVA LÓGICA PARA LIQUIDACIONES – CIRCUITO INDEPENDIENTE
+
+1. 📦 Tabla nueva sugerida: `liquidation_payments`
+   - Estructura propuesta:
+     CREATE TABLE liquidation_payments (
+       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+       employee_id UUID NOT NULL,
+       amount NUMERIC NOT NULL,
+       date DATE NOT NULL,
+       concept VARCHAR NOT NULL,
+       notes TEXT,
+       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+     );
+  Confirmame si esta estructura te parece que esta ok y la creo en la db.
+
+2. 🔁 Flujo independiente:
+   - Generar liquidaciones:
+     - Botón: "Generar Liquidaciones" (nuevo)
+     - Crea registros en `pending_liquidations` si no existen y `processed = false`
+   - Ver liquidaciones pendientes:
+     - Solo muestra `processed = false`
+   - Confirmar pago:
+     - Cambia `processed = true` y carga `processed_at = now()`
+     - Crea entrada en `liquidation_payments`
+   - Historial:
+     - Crear una pestaña aparte del historial de nómina
+     - Mostrar exclusivamente registros de `liquidation_payments`
+
+🚫 NO usar ni modificar:
+- Tabla payroll_details
+- Tabla payroll
+- Ninguna tabla compartida con nómina
+
+—
+
+🎨 AJUSTES ESTÉTICOS SOLICITADOS
+
+✅ MANTENER:
+- Botón “Generar Nómina”
+- Botón “Regenerar Nómina” (por ahora)
+
+❌ ELIMINAR:
+- Botón “Volver a diagnóstico”
+- Pestaña o vista “Herramientas” (si ya no se usa)
+
+🛠️ IMPORTANTE:
+Si al hacer estos ajustes hay lógica o elementos embebidos, se debe revisar cada modificación con extremo cuidado para NO afectar ninguna parte ya funcional.
+
+—
+
+📌 RESUMEN FINAL:
+- Nóminas: cerradas, protegidas, no modificar.
+- Liquidaciones: nuevo circuito independiente con su lógica, tabla y vista separadas.
+- Cambios estéticos: mantener lo útil, eliminar lo innecesario, siempre con precaución.
+
