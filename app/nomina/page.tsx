@@ -243,6 +243,28 @@ export default function NominaPage() {
 
         setHistoryPayrolls(historyPayrollsData)
         setHistoryLiquidations(historyLiquidationsData)
+
+        // Combinar y filtrar datos para el historial
+        let combinedHistory = []
+
+        // Agregar nóminas pagadas
+        if (historyFilter === "all" || historyFilter === "payroll") {
+          combinedHistory = [...combinedHistory, ...historyPayrollsData]
+        }
+
+        // Agregar liquidaciones pagadas
+        if (historyFilter === "all" || historyFilter === "liquidation") {
+          combinedHistory = [...combinedHistory, ...historyLiquidationsData]
+        }
+
+        // Ordenar por fecha de pago más reciente
+        combinedHistory.sort((a, b) => {
+          const dateA = new Date(a.paymentDate || a.hand_payment_date || a.bank_payment_date || 0)
+          const dateB = new Date(b.paymentDate || b.hand_payment_date || b.bank_payment_date || 0)
+          return dateB.getTime() - dateA.getTime()
+        })
+
+        setFilteredHistory(combinedHistory)
       }
     } catch (error) {
       console.error("Error al cargar datos:", error)
@@ -379,36 +401,28 @@ export default function NominaPage() {
         console.log("Marcando pago en mano como pagado")
         await payrollService.updatePayrollStatus(selectedPayroll.id, "is_paid_hand", true)
 
-        // Solo crear registro en payroll_details si el monto es mayor a 0
-        if (handSalaryValue > 0) {
-          await payrollService.createPayrollDetail(selectedPayroll.id, {
-            type: "addition",
-            concept: "Pago en Mano",
-            amount: handSalaryValue,
-            description: `Pago en efectivo - ${paymentMethod}`
-          })
-          console.log(`Registro en payroll_details creado para pago en mano: ${handSalaryValue}`)
-        } else {
-          console.log("Pago en mano marcado como pagado pero monto es 0 - no se crea detalle")
-        }
+        // Crear registro en payroll_details incluso si el monto es 0
+        await payrollService.createPayrollDetail(selectedPayroll.id, {
+          type: "addition",
+          concept: "Pago en Mano",
+          amount: handSalaryValue,
+          description: `Pago en efectivo - ${paymentMethod}`
+        })
+        console.log(`Registro en payroll_details creado para pago en mano: ${handSalaryValue}`)
       }
 
       if (isBankSalaryPaid) {
         console.log("Marcando pago en banco como pagado")
         await payrollService.updatePayrollStatus(selectedPayroll.id, "is_paid_bank", true)
 
-        // Solo crear registro en payroll_details si el monto es mayor a 0
-        if (bankSalaryValue > 0) {
-          await payrollService.createPayrollDetail(selectedPayroll.id, {
-            type: "addition",
-            concept: "Pago por Banco",
-            amount: bankSalaryValue,
-            description: `Pago bancario - ${paymentMethod}`
-          })
-          console.log(`Registro en payroll_details creado para pago en banco: ${bankSalaryValue}`)
-        } else {
-          console.log("Pago en banco marcado como pagado pero monto es 0 - no se crea detalle")
-        }
+        // Crear registro en payroll_details incluso si el monto es 0
+        await payrollService.createPayrollDetail(selectedPayroll.id, {
+          type: "addition",
+          concept: "Pago por Banco",
+          amount: bankSalaryValue,
+          description: `Pago bancario - ${paymentMethod}`
+        })
+        console.log(`Registro en payroll_details creado para pago en banco: ${bankSalaryValue}`)
       }
 
       // Verificar si ambos pagos están completados
@@ -428,6 +442,18 @@ export default function NominaPage() {
         if (updatedPayroll.is_paid) {
           console.log("✅ Nómina completamente pagada, actualizando detalles finales")
           await payrollService.updatePaymentDetails(selectedPayroll.id, paymentMethod, paymentReference)
+          
+          // Crear un registro resumen en payroll_details con el total completo
+          const totalAmount = handSalaryValue + bankSalaryValue
+          if (totalAmount > 0) {
+            await payrollService.createPayrollDetail(selectedPayroll.id, {
+              type: "addition",
+              concept: "Pago Total Completado",
+              amount: totalAmount,
+              description: `Pago total (Mano: ${handSalaryValue} + Banco: ${bankSalaryValue}) - ${paymentMethod}`
+            })
+            console.log(`Registro resumen creado en payroll_details con total: ${totalAmount}`)
+          }
           
           toast({
             title: "Pago completado",
@@ -1010,7 +1036,16 @@ export default function NominaPage() {
     {
       accessorKey: "paymentDate",
       header: "Fecha de Pago",
-      cell: ({ row }) => formatDate(row.original.paymentDate || ""),
+      cell: ({ row }) => {
+        // Buscar la fecha de pago más reciente entre los diferentes campos posibles
+        const paymentDate = row.original.paymentDate || 
+                            row.original.payment_date || 
+                            row.original.hand_payment_date || 
+                            row.original.bank_payment_date ||
+                            row.original.paid_at ||
+                            ""
+        return formatDate(paymentDate)
+      },
     },
     {
       accessorKey: "amount",

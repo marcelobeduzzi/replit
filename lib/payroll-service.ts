@@ -853,9 +853,10 @@ class PayrollService {
     try {
       console.log(`Creando registro en payroll_details para nómina ${payrollId}:`, detail)
 
-      // Validar que el monto sea positivo
-      if (detail.amount <= 0) {
-        console.log(`Saltando creación de detalle porque el monto es ${detail.amount} (debe ser > 0)`)
+      // IMPORTANTE: Permitir montos de 0 ya que es válido en el contexto de nóminas
+      // Solo rechazar valores negativos o undefined/null
+      if (detail.amount < 0 || detail.amount === undefined || detail.amount === null) {
+        console.log(`Saltando creación de detalle porque el monto es inválido: ${detail.amount}`)
         return null
       }
 
