@@ -50,7 +50,10 @@ import { payrollService } from "@/lib/payroll-service"
 import { useAuth } from "@/lib/auth-context"
 import { format } from "date-fns"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { generatePayroll, regeneratePayroll } from "@/lib/payroll-service"
+import { generateLiquidations } from "@/lib/liquidation-payments-service"
 
+// This component manages payroll and liquidation processes, including generating, regenerating, and confirming payments.
 export default function NominaPage() {
   const { user, isLoading: authLoading } = useAuth()
   const router = useRouter()
@@ -126,6 +129,11 @@ export default function NominaPage() {
   const [isLoadingAttendances, setIsLoadingAttendances] = useState(false)
   const [historyFilter, setHistoryFilter] = useState<"all" | "payroll" | "liquidation">("all")
   const [payrollHistory, setPayrollHistory] = useState<any[]>([])
+  const [isGeneratingPayroll, setIsGeneratingPayroll] = useState(false)
+  const [isRegeneratingPayroll, setIsRegeneratingPayroll] = useState(false)
+  const [payrollResult, setPayrollResult] = useState<any>(null)
+  const [isRegeneratingLiquidations, setIsRegeneratingLiquidations] = useState(false)
+  const [liquidationsResult, setLiquidationsResult] = useState<any>(null)
 
   // Estados para el diálogo de pago
   const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split("T")[0])
@@ -859,7 +867,7 @@ export default function NominaPage() {
       cell: ({ row }) => (
         <div className="flex items-center space-x-2">
           <Button
-            variant="outline"
+            variant="outline"```tool_code
             size="sm"
             onClick={() => {
               setSelectedPayroll(row.original)
@@ -1222,7 +1230,65 @@ export default function NominaPage() {
             <p className="text-muted-foreground">Administra los pagos de salarios y liquidaciones</p>
           </div>
           <div className="flex items-center space-x-2">
-            {/* Botones eliminados según instrucciones */}
+            <Button
+              onClick={handleGeneratePayroll}
+              disabled={isGeneratingPayroll || employees.length === 0}
+              className="w-full sm:w-auto"
+            >
+              {isGeneratingPayroll ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generando...
+                </>
+              ) : (
+                "Generar Nóminas"
+              )}
+            </Button>
+            <Button
+              onClick={handleRegeneratePayroll}
+              disabled={isRegeneratingPayroll || currentPayrolls.length === 0}
+              variant="outline"
+              className="w-full sm:w-auto"
+            >
+              {isRegeneratingPayroll ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Regenerando...
+                </>
+              ) : (
+                "Regenerar Nóminas"
+              )}
+            </Button>
+            <Button
+              onClick={handleGenerateLiquidations}
+              disabled={isGeneratingLiquidations}
+              variant="default"
+              className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700"
+            >
+              {isGeneratingLiquidations ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generando...
+                </>
+              ) : (
+                "Generar Liquidaciones"
+              )}
+            </Button>
+            <Button
+              onClick={handleRegenerateLiquidations}
+              disabled={isRegeneratingLiquidations}
+              variant="outline"
+              className="w-full sm:w-auto border-orange-600 text-orange-600 hover:bg-orange-50"
+            >
+              {isRegeneratingLiquidations ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Regenerando...
+                </>
+              ) : (
+                "Regenerar Liquidaciones"
+              )}
+            </Button>
           </div>
         </div>
 
