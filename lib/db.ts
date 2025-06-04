@@ -1,11 +1,13 @@
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { objectToCamelCase, objectToSnakeCase } from "./utils" // Import utility functions
 import type { Employee, Attendance, Payroll, PayrollDetail } from "@/types"
 import type { Liquidation } from "@/types"
-import { supabase as supabaseClient } from "./supabase/client" // Importar el cliente de Supabase
+import { getSupabase } from "./supabase/client" // Importar el cliente único de Supabase
 
 // Exportar supabase directamente para mantener compatibilidad con el código existente
-export { supabaseClient as supabase }
+export const supabase = getSupabase()
+
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { Billing, Order, Audit } from "@/types"
 
 interface AttendanceType {
   [key: string]: any // Define the Attendance interface
@@ -383,8 +385,8 @@ class DatabaseService {
 
       // Construir la consulta base
       let query = this.supabase.from("attendance").select(`
- *,
- employees (id, first_name, last_name)
+*,
+employees (id, first_name, last_name)
 `)
 
       // Filtrar por fecha exacta (sin manipulación)
@@ -855,7 +857,8 @@ class DatabaseService {
   // MODIFICADO: Método createPayroll para usar el salario base del empleado cuando no hay asistencias
   async createPayroll(payroll: Omit<Payroll, "id">) {
     try {
-      console.log("Datos originales recibidos en createPayroll:", payroll)
+      console.log("Datos originales recibidos en```typescript
+createPayroll:", payroll)
 
       // Si no se proporciona handSalary, obtener el salario base del empleado
       let handSalary = Number(payroll.handSalary || 0)
@@ -2573,7 +2576,7 @@ const dbService = new DatabaseService()
 dbService.updateEmployeeColumns().catch(console.error)
 
 // Exportar la función getSupabase (AÑADIDO)
-export const getSupabase = () => dbService.getSupabase()
+export const getSupabaseFn = () => dbService.getSupabase()
 
 // Crear un objeto que imita la estructura de Prisma pero usa dbService internamente
 export const db = {

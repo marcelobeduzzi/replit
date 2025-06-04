@@ -1,9 +1,10 @@
+
 // lib/auth-context.tsx
 "use client"
 
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { supabase } from "./supabase/client"
+import { getSupabase } from "./supabase/client"
 import { supervisorService, type SupervisorWithPin } from "./supervisor-service"
 import type { User, UserRole } from "@/types/auth"
 import { AuthChangeEvent, Session } from '@supabase/supabase-js'
@@ -47,6 +48,11 @@ let isInitializing = false
  * Carga los metadatos de un usuario de manera segura con múltiples fallbacks
  */
 async function loadUserMetadata(userId: string): Promise<UserMetadata> {
+  const supabase = getSupabase()
+  if (!supabase) {
+    throw new Error("Supabase client no disponible")
+  }
+
   // Si ya tenemos los datos en caché, los devolvemos
   if (metadataCache[userId]) {
     console.log("Usando metadatos en caché para usuario:", userId)
@@ -199,6 +205,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Función para refrescar la sesión
   const refreshSession = async () => {
+    const supabase = getSupabase()
+    if (!supabase) return false
+
     try {
       console.log("Intentando refrescar sesión...")
       
@@ -272,6 +281,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isInitializing = true
 
     const checkSession = async () => {
+      const supabase = getSupabase()
+      if (!supabase) {
+        console.log("Supabase client no disponible")
+        setIsLoading(false)
+        setAuthChecked(true)
+        isInitializing = false
+        return
+      }
+
       try {
         console.log("AuthContext - Verificando sesión inicial...")
         setIsLoading(true)
@@ -337,6 +355,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Suscribirse a cambios de autenticación con delay para evitar conflictos
     const setupAuthListener = () => {
+      const supabase = getSupabase()
+      if (!supabase) return () => {}
+
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
@@ -436,6 +457,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Función de login
   const login = async (email: string, password: string) => {
+    const supabase = getSupabase()
+    if (!supabase) {
+      throw new Error("Supabase client no disponible")
+    }
+
     try {
       setIsLoading(true)
       setError(null)
@@ -485,6 +511,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Función de logout
   const logout = async () => {
+    const supabase = getSupabase()
+    if (!supabase) return
+
     try {
       setIsLoading(true)
       await supabase.auth.signOut()
