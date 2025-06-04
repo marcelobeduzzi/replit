@@ -236,6 +236,60 @@ class LiquidationPaymentsService {
     }
   }
 
+  /**
+   * Regenera liquidaciones (actualiza todas las liquidaciones no pagadas)
+   */
+  async regenerateLiquidations(inactiveEmployees: any[]): Promise<{ generated: number; updated: number; skipped: number }> {
+    try {
+      let generated = 0
+      let updated = 0
+      let skipped = 0
+
+      console.log('🔄 Iniciando regeneración de liquidaciones...')
+
+      for (const employee of inactiveEmployees) {
+        try {
+          // Verificar si ya existe liquidación para este empleado
+          const { data: existingLiquidation } = await supabase
+            .from('liquidations')
+            .select('id, is_paid')
+            .eq('employee_id', employee.id)
+            .single()
+
+          if (existingLiquidation) {
+            if (existingLiquidation.is_paid) {
+              // Si ya está pagada, la omitimos
+              skipped++
+              console.log(`⏭️ Liquidación ya pagada para empleado ${employee.id}, omitiendo`)
+              continue
+            } else {
+              // Forzar actualización de liquidación existente no pagada
+              await this.updateExistingLiquidation(existingLiquidation.id, employee)
+              updated++
+              console.log(`🔄 Liquidación actualizada para empleado ${employee.id}`)
+              continue
+            }
+          }
+
+          // Si no existe, crear nueva liquidación
+          await this.createNewLiquidation(employee)
+          generated++
+          console.log(`✅ Nueva liquidación creada para empleado ${employee.id}`)
+
+        } catch (error) {
+          console.error(`❌ Error procesando liquidación para empleado ${employee.id}:`, error)
+          skipped++
+        }
+      }
+
+      console.log(`🎯 Regeneración completada: ${generated} nuevas, ${updated} actualizadas, ${skipped} omitidas`)
+      return { generated, updated, skipped }
+    } catch (error) {
+      console.error('❌ Error en regenerateLiquidations:', error)
+      throw error
+    }
+  }
+
   private async createNewLiquidation(employee: any) {
     // Calcular valores de liquidación
     const terminationDate = new Date(employee.termination_date || employee.terminationDate)

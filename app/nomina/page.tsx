@@ -1313,21 +1313,60 @@ export default function NominaPage() {
             {isGeneratingPayrolls ? "Regenerando..." : "Regenerar Nóminas"}
           </Button>
 
+          <Button
+            variant="outline"
+            onClick={handleGenerateLiquidations}
+            disabled={isGeneratingLiquidations || inactiveEmployees.length === 0}
+          >
+            {isGeneratingLiquidations ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Calculator className="mr-2 h-4 w-4" />
+            )}
+            {isGeneratingLiquidations ? "Generando..." : "Generar Liquidaciones"}
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                setIsGeneratingLiquidations(true)
+
+                console.log("=== INICIO DE REGENERACIÓN DE LIQUIDACIONES ===")
+                console.log(`Regenerando liquidaciones para empleados inactivos: ${inactiveEmployees.length}`)
+
+                // Usar el servicio de liquidaciones para regenerar con el método específico
+                const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
+                const result = await liquidationPaymentsService.regenerateLiquidations(inactiveEmployees)
+
+                console.log("=== FIN DE REGENERACIÓN DE LIQUIDACIONES ===")
+
+                toast({
+                  title: "Liquidaciones regeneradas",
+                  description: `Se regeneraron ${result.generated} liquidaciones nuevas, se actualizaron ${result.updated} existentes y se omitieron ${result.skipped} ya pagadas.`,
+                })
+
+                // Recargar datos
+                await loadData()
+              } catch (error) {
+                console.error("Error al regenerar liquidaciones:", error)
+                toast({
+                  title: "Error",
+                  description: "No se pudieron regenerar las liquidaciones. Intente nuevamente.",
+                  variant: "destructive",
+                })
+              } finally {
+                setIsGeneratingLiquidations(false)
+              }
+            }}
+            disabled={isGeneratingLiquidations || inactiveEmployees.length === 0}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isGeneratingLiquidations ? "animate-spin" : ""}`} />
+            {isGeneratingLiquidations ? "Regenerando..." : "Regenerar Liquidaciones"}
+          </Button>
+
           {activeTab === "liquidaciones" && (
             <>
-              <Button
-                variant="outline"
-                onClick={handleGenerateLiquidations}
-                disabled={isGeneratingLiquidations || inactiveEmployees.length === 0}
-              >
-                {isGeneratingLiquidations ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Calculator className="mr-2 h-4 w-4" />
-                )}
-                {isGeneratingLiquidations ? "Generando..." : "Generar Liquidaciones"}
-              </Button>
-
               <Button variant="outline" onClick={() => router.push("/nomina/liquidations/create")}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Nueva Liquidación
