@@ -867,7 +867,7 @@ export default function NominaPage() {
       cell: ({ row }) => (
         <div className="flex items-center space-x-2">
           <Button
-            variant="outline"```tool_code
+            variant="outline"
             size="sm"
             onClick={() => {
               setSelectedPayroll(row.original)
