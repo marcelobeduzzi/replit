@@ -857,8 +857,7 @@ employees (id, first_name, last_name)
   // MODIFICADO: Método createPayroll para usar el salario base del empleado cuando no hay asistencias
   async createPayroll(payroll: Omit<Payroll, "id">) {
     try {
-      console.log("Datos originales recibidos en```typescript
-createPayroll:", payroll)
+      console.log("Datos originales recibidos en createPayroll:", payroll)
 
       // Si no se proporciona handSalary, obtener el salario base del empleado
       let handSalary = Number(payroll.handSalary || 0)
