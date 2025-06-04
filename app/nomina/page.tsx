@@ -134,6 +134,108 @@ export default function NominaPage() {
   const [payrollResult, setPayrollResult] = useState<any>(null)
   const [isRegeneratingLiquidations, setIsRegeneratingLiquidations] = useState(false)
   const [liquidationsResult, setLiquidationsResult] = useState<any>(null)
+  const [currentPayrolls, setCurrentPayrolls] = useState<any[]>([])
+
+  // Funciones para generar y regenerar nóminas
+  const handleGeneratePayroll = async () => {
+    try {
+      setIsGeneratingPayroll(true)
+      const employeeIds = employees.map((emp) => emp.id)
+
+      if (employeeIds.length === 0) {
+        toast({
+          title: "Error",
+          description: "No hay empleados activos para generar nóminas.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const result = await payrollService.generatePayrolls(employeeIds, selectedMonth, selectedYear)
+
+      if (result.success) {
+        toast({
+          title: "Nóminas generadas",
+          description: `Se generaron ${result.generated} nóminas correctamente${result.errors > 0 ? `. ${result.errors} errores.` : '.'}`,
+        })
+        await loadData()
+      } else {
+        throw new Error("La generación de nóminas falló")
+      }
+    } catch (error) {
+      console.error("Error al generar nóminas:", error)
+      toast({
+        title: "Error",
+        description: `No se pudieron generar las nóminas: ${error.message}`,
+        variant: "destructive",
+      })
+    } finally {
+      setIsGeneratingPayroll(false)
+    }
+  }
+
+  const handleRegeneratePayroll = async () => {
+    try {
+      setIsRegeneratingPayroll(true)
+      const employeeIds = employees.map((emp) => emp.id)
+
+      if (employeeIds.length === 0) {
+        toast({
+          title: "Error",
+          description: "No hay empleados activos para regenerar nóminas.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      await payrollService.forceRegeneratePayrolls(employeeIds, selectedMonth, selectedYear)
+
+      toast({
+        title: "Nóminas regeneradas",
+        description: "Las nóminas han sido regeneradas correctamente.",
+      })
+      await loadData()
+    } catch (error) {
+      console.error("Error al regenerar nóminas:", error)
+      toast({
+        title: "Error",
+        description: "No se pudieron regenerar las nóminas. Intente nuevamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsRegeneratingPayroll(false)
+    }
+  }
+
+  const handleRegenerateLiquidations = async () => {
+    try {
+      setIsRegeneratingLiquidations(true)
+
+      console.log("=== INICIO DE REGENERACIÓN DE LIQUIDACIONES ===")
+      console.log(`Regenerando liquidaciones para empleados inactivos: ${inactiveEmployees.length}`)
+
+      const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
+      const result = await liquidationPaymentsService.regenerateLiquidations(inactiveEmployees)
+
+      console.log("=== FIN DE REGENERACIÓN DE LIQUIDACIONES ===")
+
+      toast({
+        title: "Liquidaciones regeneradas",
+        description: `Se regeneraron ${result.generated} liquidaciones nuevas, se actualizaron ${result.updated} existentes y se omitieron ${result.skipped} ya pagadas.`,
+      })
+
+      await loadData()
+    } catch (error) {
+      console.error("Error al regenerar liquidaciones:", error)
+      toast({
+        title: "Error",
+        description: "No se pudieron regenerar las liquidaciones. Intente nuevamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsRegeneratingLiquidations(false)
+    }
+  }
 
   // Estados para el diálogo de pago
   const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split("T")[0])
@@ -246,6 +348,7 @@ export default function NominaPage() {
         }))
 
         setPayrolls(correctedPayrolls)
+        setCurrentPayrolls(correctedPayrolls)
 
         // Filtrar las nóminas para el mes/año seleccionado
         const filtered = showAllPending
