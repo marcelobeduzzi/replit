@@ -530,4 +530,4 @@ export function DashboardLayout({ children, isLoading }: { children: React.React
 }
 
 // También exportamos como default para mantener compatibilidad con ambos tipos de importación
-export default DashboardLayoutefault DashboardLayout
+export default DashboardLayout
