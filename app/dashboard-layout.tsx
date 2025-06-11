@@ -534,6 +534,3 @@ export default function DashboardLayout({
     </div>
   )
 }
-
-// Exportación por defecto principal
-export default DashboardLayout
