@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -18,6 +17,7 @@ import { AlertTriangle, Calendar, DollarSign, Users, FileText, Calculator, Setti
 import DashboardLayout from "@/app/dashboard-layout"
 import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/components/ui/use-toast"
+import { supabase } from "@/lib/supabase/client"
 
 interface Payroll {
   id: string
@@ -49,24 +49,24 @@ export default function NominaPage() {
   const { user, sessionStatus } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
-  
+
   const [payrolls, setPayrolls] = useState<Payroll[]>([])
   const [liquidations, setLiquidations] = useState<Liquidation[]>([])
   const [isLoading, setIsLoading] = useState(false) // Cambiar a false inicialmente
   const [activeTab, setActiveTab] = useState("pendientes")
   const [hasSearched, setHasSearched] = useState(false) // Nuevo estado para controlar si se ha hecho búsqueda
-  
+
   // Estados para generación de nóminas
   const [generatePeriod, setGeneratePeriod] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false)
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false)
-  
+
   // Estados para liquidaciones
   const [liquidationDialogOpen, setLiquidationDialogOpen] = useState(false)
   const [regenerateLiquidationDialogOpen, setRegenerateLiquidationDialogOpen] = useState(false)
   const [isGeneratingLiquidations, setIsGeneratingLiquidations] = useState(false)
-  
+
   // Estados para confirmación de pagos
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [selectedPayroll, setSelectedPayroll] = useState<Payroll | null>(null)
@@ -81,12 +81,12 @@ export default function NominaPage() {
 
   useEffect(() => {
     console.log("Nóminas - sessionStatus:", sessionStatus, "user:", user ? user.email : null)
-    
+
     // Esperar a que termine la carga antes de tomar decisiones
     if (sessionStatus === "loading") {
       return
     }
-    
+
     // Solo redirigir si estamos seguros de que no hay sesión válida
     if (sessionStatus === "invalid") {
       console.log("Redirigiendo a login desde nóminas")
@@ -125,26 +125,26 @@ export default function NominaPage() {
     try {
       setIsLoading(true)
       setHasSearched(true) // Marcar que se ha realizado una búsqueda
-      
+
       // Construir parámetros de consulta basados en los filtros
       const params = new URLSearchParams()
-      
+
       // Siempre agregar mes y año ya que se requieren
       params.append("month", monthFilter)
       params.append("year", yearFilter)
-      
+
       console.log("Cargando nóminas con filtros específicos:", { monthFilter, yearFilter })
-      
+
       // Cargar nóminas con filtros aplicados
       const payrollUrl = `/api/payroll?${params.toString()}`
       console.log("URL de consulta:", payrollUrl)
-      
+
       const payrollResponse = await fetch(payrollUrl, {
         headers: {
           'Cache-Control': 'no-cache'
         }
       })
-      
+
       if (payrollResponse.ok) {
         const payrollData = await payrollResponse.json()
         console.log("Nóminas cargadas:", payrollData.length)
@@ -152,13 +152,27 @@ export default function NominaPage() {
       } else {
         const errorText = await payrollResponse.text()
         console.error("Error en respuesta de nóminas:", payrollResponse.status, errorText)
-        
-        // Si es error 401, no mostrar toast (se redirigirá automáticamente)
-        if (payrollResponse.status !== 401) {
+
+        if (payrollResponse.status === 401) {
+          console.log("Error de autenticación, redirigiendo al login...")
+          // Intentar refrescar la sesión antes de redirigir
+          try {
+            const refreshResult = await supabase.auth.refreshSession()
+            if (refreshResult.error) {
+              window.location.href = '/login'
+              return
+            }
+            // Si el refresh fue exitoso, reintentar la carga
+            setTimeout(() => loadData(), 1000)
+          } catch (err) {
+            console.error("Error al refrescar sesión:", err)
+            window.location.href = '/login'
+          }
+        } else {
           toast({
             title: "Error",
             description: `Error al cargar las nóminas: ${payrollResponse.status}`,
-            variant: "destructive",
+            variant: "destructive"
           })
         }
       }
@@ -170,7 +184,7 @@ export default function NominaPage() {
             'Cache-Control': 'no-cache'
           }
         })
-        
+
         if (liquidationResponse.ok) {
           const liquidationData = await liquidationResponse.json()
           console.log("Liquidaciones cargadas:", liquidationData.length)
@@ -291,7 +305,7 @@ export default function NominaPage() {
       // Aquí iría la llamada a la API para generar liquidaciones
       // Por ahora simularemos la funcionalidad
       await new Promise(resolve => setTimeout(resolve, 2000))
-      
+
       toast({
         title: "Éxito",
         description: "Liquidaciones generadas correctamente",
@@ -384,17 +398,17 @@ export default function NominaPage() {
   const filteredPayrolls = payrolls.filter(payroll => {
     // Verificar que el payroll tenga las propiedades necesarias
     if (!payroll) return false
-    
+
     const payrollMonth = payroll.month || (payroll.period ? parseInt(payroll.period.split('-')[1]) : null)
     const payrollYear = payroll.year || (payroll.period ? parseInt(payroll.period.split('-')[0]) : null)
-    
+
     const monthMatch = monthFilter === "all" || (payrollMonth && payrollMonth.toString() === monthFilter)
     const yearMatch = yearFilter === "all" || (payrollYear && payrollYear.toString() === yearFilter)
     const statusMatch = statusFilter === "all" ||
       (statusFilter === "paid" && (payroll.isPaid || payroll.is_paid)) ||
       (statusFilter === "pending" && !(payroll.isPaid || payroll.is_paid)) ||
       (statusFilter === "partial" && ((payroll.isPaidHand || payroll.is_paid_hand) || (payroll.isPaidBank || payroll.is_paid_bank)) && !(payroll.isPaid || payroll.is_paid))
-    
+
     return monthMatch && yearMatch && statusMatch
   })
 
@@ -402,7 +416,7 @@ export default function NominaPage() {
     const statusMatch = statusFilter === "all" ||
       (statusFilter === "paid" && liquidation.isPaid) ||
       (statusFilter === "pending" && !liquidation.isPaid)
-    
+
     return statusMatch
   })
 

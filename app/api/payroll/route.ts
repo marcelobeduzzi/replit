@@ -14,16 +14,25 @@ export async function GET(request: Request) {
     } = await supabase.auth.getSession()
     
     if (sessionError) {
-      console.error("Error obteniendo sesión:", sessionError)
+      console.error("Error obteniendo sesión en API payroll:", sessionError)
       return NextResponse.json({ error: "Error de autenticación" }, { status: 401 })
     }
     
     if (!session || !session.user) {
       console.log("No hay sesión activa en API payroll")
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+      // Intentar refrescar la sesión
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+      
+      if (refreshError || !refreshData.session) {
+        console.error("Error al refrescar sesión:", refreshError)
+        return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+      }
+      
+      console.log("Sesión refrescada exitosamente en API payroll")
     }
     
-    console.log("Sesión válida en API payroll para usuario:", session.user.email)
+    const currentSession = session || refreshData?.session
+    console.log("Sesión válida en API payroll para usuario:", currentSession?.user?.email)
 
     // Obtener parámetros de consulta
     const url = new URL(request.url)
