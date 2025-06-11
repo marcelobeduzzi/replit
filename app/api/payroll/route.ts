@@ -16,16 +16,25 @@ export async function GET(request: Request) {
 
     // Verificación de autenticación con más detalles
     console.log("Verificando usuario...")
+    console.log("Cookies disponibles:", cookieStore.getAll().map(c => ({ name: c.name, value: c.value.substring(0, 50) + '...' })))
+    
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     
     console.log("Resultado de auth.getUser():")
     console.log("- User:", user ? { id: user.id, email: user.email } : null)
     console.log("- Error:", userError)
+    console.log("- Error type:", userError?.name)
+    console.log("- Error message:", userError?.message)
 
     if (userError || !user) {
       console.log("❌ AUTENTICACIÓN FALLIDA")
       console.log("- Error completo:", JSON.stringify(userError, null, 2))
       console.log("- Usuario:", user)
+      console.log("- Headers recibidos:", {
+        authorization: request.headers.get('authorization')?.substring(0, 50) + '...',
+        cookie: request.headers.get('cookie')?.substring(0, 100) + '...',
+        'user-agent': request.headers.get('user-agent')
+      })
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 

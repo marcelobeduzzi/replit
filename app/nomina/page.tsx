@@ -174,17 +174,17 @@ export default function NominaPage() {
         } catch {
           errorDetails = await payrollResponse.text()
         }
-        
+
         console.error("❌ Error en respuesta de nóminas:", payrollResponse.status, errorDetails)
         console.error("Response headers:", Object.fromEntries(payrollResponse.headers.entries()))
 
         if (payrollResponse.status === 401) {
           console.log("🔄 Error de autenticación detectado - Intentando refrescar sesión...")
-          
+
           // Verificar estado de la sesión local primero
           const currentUser = await sessionManager.getUser()
           console.log("Usuario local antes del refresco:", currentUser ? currentUser.email : null)
-          
+
           // Intentar refrescar la sesión antes de mostrar error
           try {
             const refreshResponse = await fetch('/api/auth/validate-session', {
@@ -194,9 +194,9 @@ export default function NominaPage() {
                 'Content-Type': 'application/json'
               }
             })
-            
+
             console.log("Respuesta del refresco:", refreshResponse.status)
-            
+
             if (refreshResponse.ok) {
               const refreshData = await refreshResponse.json()
               console.log("✅ Sesión refrescada:", refreshData.message)
@@ -211,7 +211,7 @@ export default function NominaPage() {
           } catch (refreshError) {
             console.error("❌ Excepción al refrescar sesión:", refreshError)
           }
-          
+
           toast({
             title: "Error de Autenticación",
             description: "No se pudo verificar tu sesión. Por favor, actualiza la página.",
@@ -899,7 +899,7 @@ export default function NominaPage() {
                           <TableCell>
                             <Button 
                               size="sm" 
-                              variant="outline"
+Adding browser cookies verification before fetch.                              variant="outline"
                               onClick={() => {
                                 setSelectedPayroll(payroll)
                                 setPaymentDialogOpen(true)
