@@ -119,8 +119,8 @@ const NavLink = memo(
 
 NavLink.displayName = "NavLink"
 
-// IMPORTANTE: Cambiamos a exportación con nombre (named export) para mantener compatibilidad
-export function DashboardLayout({ children, isLoading }: { children: React.ReactNode; isLoading?: boolean }) {
+// Exportación por defecto
+function DashboardLayout({ children, isLoading }: { children: React.ReactNode; isLoading?: boolean }) {
   const pathname = usePathname()
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null)
   const { user, logout, refreshSession } = useAuth()
@@ -529,5 +529,5 @@ export function DashboardLayout({ children, isLoading }: { children: React.React
   )
 }
 
-// También exportamos como default para mantener compatibilidad con ambos tipos de importación
+// Exportación por defecto únicamente
 export default DashboardLayout
