@@ -7,7 +7,7 @@ export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
+
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -21,9 +21,9 @@ export function useAuth() {
         setIsLoading(false)
       }
     }
-    
+
     loadUser()
-    
+
     // Configurar un intervalo para verificar el usuario cada minuto
     // Esto ayuda a mantener la UI sincronizada con el estado de autenticación
     const interval = setInterval(async () => {
@@ -32,22 +32,22 @@ export function useAuth() {
         setUser(currentUser)
       }
     }, 60000)
-    
+
     return () => clearInterval(interval)
   }, [])
-  
+
   const login = async (email: string, password: string) => {
     setIsLoading(true)
     setError(null)
-    
+
     try {
       const result = await sessionManager.login(email, password)
-      
+
       if (!result.success) {
         setError(result.error || 'Error al iniciar sesión')
         return { success: false, error: result.error }
       }
-      
+
       setUser(result.data.user)
       return { success: true, data: result.data }
     } catch (err: any) {
@@ -58,19 +58,19 @@ export function useAuth() {
       setIsLoading(false)
     }
   }
-  
+
   const logout = async () => {
     setIsLoading(true)
-    
+
     try {
       const result = await sessionManager.logout()
-      
+
       if (result.success) {
         setUser(null)
       } else {
         setError(result.error || 'Error al cerrar sesión')
       }
-      
+
       return result
     } catch (err: any) {
       console.error('Error en logout:', err)
@@ -91,7 +91,7 @@ export function useAuth() {
       return false
     }
   }
-  
+
   return {
     user,
     isLoading,

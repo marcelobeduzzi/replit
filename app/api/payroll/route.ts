@@ -7,13 +7,23 @@ export async function GET(request: Request) {
     const cookieStore = await cookies()
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
-    // Verificar autenticación
+    // Verificar autenticación con mejor manejo de errores
     const {
       data: { session },
+      error: sessionError
     } = await supabase.auth.getSession()
-    if (!session) {
+    
+    if (sessionError) {
+      console.error("Error obteniendo sesión:", sessionError)
+      return NextResponse.json({ error: "Error de autenticación" }, { status: 401 })
+    }
+    
+    if (!session || !session.user) {
+      console.log("No hay sesión activa en API payroll")
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
+    
+    console.log("Sesión válida en API payroll para usuario:", session.user.email)
 
     // Obtener parámetros de consulta
     const url = new URL(request.url)

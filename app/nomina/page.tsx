@@ -79,15 +79,20 @@ export default function NominaPage() {
   const [statusFilter, setStatusFilter] = useState("all")
 
   useEffect(() => {
-    if (sessionStatus === "invalid") {
+    console.log("Nóminas - sessionStatus:", sessionStatus, "user:", user)
+    
+    // Solo redirigir si estamos seguros de que no hay sesión válida
+    if (sessionStatus === "invalid" && user === null) {
+      console.log("Redirigiendo a login desde nóminas")
       router.push("/login")
       return
     }
 
-    if (sessionStatus === "valid") {
+    if (sessionStatus === "valid" && user) {
+      console.log("Sesión válida, cargando datos de nóminas")
       loadData()
     }
-  }, [sessionStatus, router])
+  }, [sessionStatus, user, router])
 
   // Recargar datos cuando cambien los filtros
   useEffect(() => {
@@ -382,7 +387,8 @@ export default function NominaPage() {
     )
   }
 
-  if (sessionStatus === "invalid") {
+  // Solo mostrar acceso denegado si estamos seguros de que no hay sesión
+  if (sessionStatus === "invalid" && user === null) {
     return (
       <DashboardLayout>
         <Card className="border-red-200 bg-red-50">
