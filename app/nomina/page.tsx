@@ -150,30 +150,52 @@ export default function NominaPage() {
         console.log("Nóminas cargadas:", payrollData.length)
         setPayrolls(payrollData)
       } else {
-        const errorText = await payrollResponse.text()
-        console.error("Error en respuesta de nóminas:", payrollResponse.status, errorText)
+        let errorDetails = ""
+        try {
+          const errorData = await payrollResponse.json()
+          errorDetails = errorData.error || "Error desconocido"
+        } catch {
+          errorDetails = await payrollResponse.text()
+        }
+        
+        console.error("Error en respuesta de nóminas:", payrollResponse.status, errorDetails)
 
         if (payrollResponse.status === 401) {
-          console.log("Error de autenticación detectado")
+          console.log("Error de autenticación detectado - Intentando refrescar sesión...")
           
-          // Mostrar mensaje al usuario y no redirigir automáticamente
+          // Intentar refrescar la sesión antes de mostrar error
+          try {
+            const refreshResponse = await fetch('/api/auth/validate-session', {
+              method: 'POST',
+              headers: {
+                'Cache-Control': 'no-cache'
+              }
+            })
+            
+            if (refreshResponse.ok) {
+              console.log("Sesión refrescada, reintentando carga de nóminas...")
+              // Reintentar la carga después de un breve delay
+              setTimeout(() => loadData(), 1000)
+              return
+            }
+          } catch (refreshError) {
+            console.error("Error al refrescar sesión:", refreshError)
+          }
+          
           toast({
-            title: "Sesión Expirada",
-            description: "Tu sesión ha expirado. Por favor, actualiza la página o inicia sesión nuevamente.",
+            title: "Error de Autenticación",
+            description: "No se pudo verificar tu sesión. Por favor, actualiza la página.",
             variant: "destructive",
-            duration: 5000
+            duration: 8000
           })
 
-          // Limpiar datos locales
           setPayrolls([])
           setLiquidations([])
-          
-          // No redirigir automáticamente, permitir al usuario decidir
           return
         } else {
           toast({
             title: "Error",
-            description: `Error al cargar las nóminas: ${payrollResponse.status}`,
+            description: `Error al cargar las nóminas (${payrollResponse.status}): ${errorDetails}`,
             variant: "destructive"
           })
         }

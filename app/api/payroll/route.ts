@@ -7,49 +7,22 @@ export async function GET(request: Request) {
     const cookieStore = await cookies()
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
-    // Verificar autenticación de manera más robusta
-    let currentSession = null
-    let sessionUser = null
-
-    try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-      
-      if (sessionError) {
-        console.error("Error obteniendo sesión en API payroll:", sessionError)
-      } else if (sessionData?.session) {
-        currentSession = sessionData.session
-        sessionUser = sessionData.session.user
-        console.log("Sesión activa encontrada para:", sessionUser.email)
-      }
-
-      // Si no hay sesión, intentar obtener el usuario directamente
-      if (!currentSession) {
-        const { data: userData, error: userError } = await supabase.auth.getUser()
-        
-        if (!userError && userData?.user) {
-          sessionUser = userData.user
-          console.log("Usuario obtenido directamente:", sessionUser.email)
-          // Crear una sesión mínima para continuar
-          currentSession = { user: sessionUser }
-        }
-      }
-
-    } catch (authError) {
-      console.error("Error en verificación de autenticación:", authError)
-    }
-
-    // Verificar si tenemos un usuario válido
-    if (!sessionUser) {
-      console.log("No se pudo obtener usuario válido")
+    // Verificación de autenticación simplificada
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    
+    if (userError || !user) {
+      console.log("Error de autenticación o usuario no encontrado:", userError?.message || "No user")
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    console.log("API Payroll - Usuario autenticado:", sessionUser.email)
+    console.log("API Payroll - Usuario autenticado:", user.email)
 
     // Obtener parámetros de consulta
     const url = new URL(request.url)
     const month = url.searchParams.get("month")
     const year = url.searchParams.get("year")
+
+    console.log(`API Payroll - Parámetros recibidos: month=${month}, year=${year}`)
 
     let query = supabase
       .from("payroll")
@@ -70,14 +43,31 @@ export async function GET(request: Request) {
 
     // Filtrar por mes y año si se proporcionan
     if (month && year) {
-      query = query.eq("month", parseInt(month)).eq("year", parseInt(year))
-      console.log(`Filtrando por mes: ${month}, año: ${year}`)
+      const monthNum = parseInt(month)
+      const yearNum = parseInt(year)
+      query = query.eq("month", monthNum).eq("year", yearNum)
+      console.log(`Aplicando filtros: month=${monthNum}, year=${yearNum}`)
     } else if (month) {
-      query = query.eq("month", parseInt(month))
-      console.log(`Filtrando solo por mes: ${month}`)
+      const monthNum = parseInt(month)
+      query = query.eq("month", monthNum)
+      console.log(`Filtrando solo por mes: ${monthNum}`)
     } else if (year) {
-      query = query.eq("year", parseInt(year))
-      console.log(`Filtrando solo por año: ${year}`)
+      const yearNum = parseInt(year)
+      query = query.eq("year", yearNum)
+      console.log(`Filtrando solo por año: ${yearNum}`)
+    } else {
+      console.log("Sin filtros aplicados - obteniendo todas las nóminas")
+    }
+
+    // Verificar primero si hay datos en la tabla
+    const { data: countData, error: countError } = await supabase
+      .from("payroll")
+      .select("id", { count: "exact", head: true })
+
+    if (countError) {
+      console.error("Error al verificar tabla payroll:", countError)
+    } else {
+      console.log(`Total de registros en tabla payroll: ${countData?.length || 0}`)
     }
 
     console.log("Ejecutando consulta de nóminas...")
@@ -85,10 +75,15 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("Error al obtener nóminas:", error)
+      console.error("Detalles del error:", JSON.stringify(error, null, 2))
       return NextResponse.json({ error: "Error al obtener nóminas" }, { status: 500 })
     }
 
-    console.log(`Nóminas encontradas: ${payrolls?.length || 0}`)
+    console.log(`Nóminas encontradas con filtros aplicados: ${payrolls?.length || 0}`)
+    
+    if (payrolls && payrolls.length > 0) {
+      console.log("Muestra de datos encontrados:", payrolls[0])
+    }
 
     // Formatear los datos para el frontend
     const formattedPayrolls = payrolls.map((payroll: any) => {
