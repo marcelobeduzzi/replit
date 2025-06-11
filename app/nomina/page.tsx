@@ -49,7 +49,10 @@ import { supabase } from "@/lib/supabase/client"
 import { payrollService } from "@/lib/payroll-service"
 import { useAuth } from "@/lib/auth-context"
 import { format } from "date-fns"
+import { es } from "date-fns/locale"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { formatCurrency as formatCurrencyUtils } from "@/lib/utils"
 
 export default function NominaPage() {
   const { user, isLoading: authLoading } = useAuth()
@@ -106,6 +109,7 @@ export default function NominaPage() {
   const [payrolls, setPayrolls] = useState<Payroll[]>([])
   const [filteredPayrolls, setFilteredPayrolls] = useState<Payroll[]>([])
   const [liquidations, setLiquidations] = useState<Liquidation[]>([])
+  const [isGeneratingLiquidations, setIsGeneratingLiquidations] = useState(false)
   const [historyPayrolls, setHistoryPayrolls] = useState<Payroll[]>([])
   const [historyLiquidations, setHistoryLiquidations] = useState<Liquidation[]>([])
   const [filteredHistory, setFilteredHistory] = useState<(Payroll | Liquidation)[]>([])
@@ -115,7 +119,6 @@ export default function NominaPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [isGeneratingPayrolls, setIsGeneratingPayrolls] = useState(false)
-  const [isGeneratingLiquidations, setIsGeneratingLiquidations] = useState(false)
   const [selectedPayroll, setSelectedPayroll] = useState<Payroll | null>(null)
   const [selectedLiquidation, setSelectedLiquidation] = useState<Liquidation | null>(null)
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
@@ -126,6 +129,7 @@ export default function NominaPage() {
   const [isLoadingAttendances, setIsLoadingAttendances] = useState(false)
   const [historyFilter, setHistoryFilter] = useState<"all" | "payroll" | "liquidation">("all")
   const [payrollHistory, setPayrollHistory] = useState<any[]>([])
+    const [isLoadingLiquidations, setIsLoadingLiquidations] = useState(false)
 
   // Estados para el diálogo de pago
   const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split("T")[0])
@@ -317,18 +321,15 @@ export default function NominaPage() {
 
   const loadLiquidations = async () => {
     try {
-      console.log("Cargando liquidaciones...")
+      setIsLoadingLiquidations(true)
       const { liquidationPaymentsService } = await import("@/lib/liquidation-payments-service")
-      const liquidationsData = await liquidationPaymentsService.generateLiquidations([])
-      console.log("Liquidaciones cargadas:", liquidationsData)
-
-      // Por ahora mostramos datos mock hasta que esté implementado
-      setLiquidations([])
-      setLiquidationTotals({
-        totalAmount: 0,
-      })
+      const pendingLiquidations = await liquidationPaymentsService.getPendingLiquidations()
+      setLiquidations(pendingLiquidations)
+      console.log(`✅ Liquidaciones cargadas: ${pendingLiquidations.length}`)
     } catch (error) {
-      console.error("Error al cargar liquidaciones:", error)
+      console.error("Error cargando liquidaciones:", error)
+    } finally {
+      setIsLoadingLiquidations(false)
     }
   }
 
@@ -1476,43 +1477,89 @@ export default function NominaPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="liquidaciones">
-            {/* Totalizador de liquidaciones */}
-            {liquidations.length > 0 && (
-              <Card className="mb-6">
-                <CardContent className="pt-6">
-                  <h3 className="text-lg font-medium mb-4">Resumen de Liquidaciones Pendientes</h3>
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="p-4 rounded-lg bg-purple-50">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <DollarSign className="h-5 w-5 text-purple-600" />
-                          <span className="ml-2 font-medium">Total a Pagar por Liquidaciones</span>
-                        </div>
-                        <span className="text-lg font-bold">{formatCurrency(liquidationTotals.totalAmount)}</span>
-                      </div>
+          
+<TabsContent value="liquidaciones" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Liquidaciones Pendientes</CardTitle>
+                  <CardDescription>Liquidaciones de empleados que han finalizado su relación laboral</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingLiquidations ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>
-                  </div>
+                  ) : liquidations.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-8">
+                      No hay liquidaciones pendientes
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Empleado</TableHead>
+                            <TableHead>Fecha de Egreso</TableHead>
+                            <TableHead>Días Trabajados</TableHead>
+                            <TableHead>Vacaciones</TableHead>
+                            <TableHead>Aguinaldo</TableHead>
+                            <TableHead>Compensación</TableHead>
+                            <TableHead>Total</TableHead>
+                            <TableHead>Acciones</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {liquidations.map((liquidation) => (
+                            <TableRow key={liquidation.id}>
+                              <TableCell className="font-medium">
+                                {liquidation.employeeName}
+                              </TableCell>
+                              <TableCell>
+                                {liquidation.terminationDate ? 
+                                  new Date(liquidation.terminationDate).toLocaleDateString() : 
+                                  "-"
+                                }
+                              </TableCell>
+                              <TableCell>{liquidation.workedDays}</TableCell>
+                              <TableCell>
+                                {liquidation.includeVacation ? 
+                                  formatCurrency(liquidation.proportionalVacation) : 
+                                  "-"
+                                }
+                              </TableCell>
+                              <TableCell>
+                                {liquidation.includeBonus ? 
+                                  formatCurrency(liquidation.proportionalBonus) : 
+                                  "-"
+                                }
+                              </TableCell>
+                              <TableCell>
+                                {formatCurrency(liquidation.compensationAmount)}
+                              </TableCell>
+                              <TableCell className="font-bold">
+                                {formatCurrency(liquidation.totalAmount)}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    // Aquí se puede agregar funcionalidad para confirmar pago
+                                    console.log("Confirmar pago de liquidación:", liquidation.id)
+                                  }}
+                                >
+                                  Confirmar Pago
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
-            )}
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Liquidaciones Finales</CardTitle>
-                <CardDescription>Liquidaciones pendientes por fin de relación laboral</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <DataTable
-                  columns={liquidationsColumns}
-                  data={liquidations}
-                  searchColumn="employeeId"
-                  searchPlaceholder="Buscar empleado..."
-                  isLoading={isLoading}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
+            </TabsContent>
 
           <TabsContent value="historial">
             <Tabs defaultValue="nominas" className="w-full">
@@ -1711,7 +1758,8 @@ export default function NominaPage() {
                             <SelectItem value="transferencia">Transferencia</SelectItem>
                             <SelectItem value="cheque">Cheque</SelectItem>
                             <SelectItem value="otro">Otro</SelectItem>
-                          </SelectContent>
+Integrate liquidations in the payment history.
+</tool_code>                          </SelectContent>
                         </Select>
                       </div>
                     </div>
