@@ -52,8 +52,9 @@ export default function NominaPage() {
   
   const [payrolls, setPayrolls] = useState<Payroll[]>([])
   const [liquidations, setLiquidations] = useState<Liquidation[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false) // Cambiar a false inicialmente
   const [activeTab, setActiveTab] = useState("pendientes")
+  const [hasSearched, setHasSearched] = useState(false) // Nuevo estado para controlar si se ha hecho búsqueda
   
   // Estados para generación de nóminas
   const [generatePeriod, setGeneratePeriod] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`)
@@ -73,9 +74,9 @@ export default function NominaPage() {
   const [paymentType, setPaymentType] = useState("")
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
 
-  // Filtros
-  const [monthFilter, setMonthFilter] = useState("all")
-  const [yearFilter, setYearFilter] = useState("all")
+  // Filtros - inicializar con valores específicos para requerir selección
+  const [monthFilter, setMonthFilter] = useState("") // Vacío inicialmente
+  const [yearFilter, setYearFilter] = useState("") // Vacío inicialmente  
   const [statusFilter, setStatusFilter] = useState("all")
 
   useEffect(() => {
@@ -93,16 +94,17 @@ export default function NominaPage() {
       return
     }
 
-    // Cargar datos solo si hay sesión válida y no estamos cargando
-    if (sessionStatus === "valid" && user && !isLoading) {
-      console.log("Sesión válida, cargando datos de nóminas")
-      loadData()
+    // NO cargar datos automáticamente - solo verificar sesión
+    if (sessionStatus === "valid" && user) {
+      console.log("Sesión válida en nóminas - esperando selección de filtros")
     }
-  }, [sessionStatus, user?.id]) // Usar user.id en lugar de user completo para evitar renders innecesarios
+  }, [sessionStatus, user?.id])
 
-  // Recargar datos cuando cambien los filtros (solo si hay sesión válida)
+  // Solo cargar datos cuando se seleccionen filtros específicos
   useEffect(() => {
-    if (sessionStatus === "valid" && user && !isLoading) {
+    // Solo cargar si hay sesión válida, usuario, y se han seleccionado mes y año específicos
+    if (sessionStatus === "valid" && user && monthFilter && yearFilter && monthFilter !== "all" && yearFilter !== "all") {
+      console.log("Filtros específicos seleccionados, cargando datos:", { monthFilter, yearFilter, statusFilter })
       loadData()
     }
   }, [monthFilter, yearFilter, statusFilter, sessionStatus])
@@ -114,24 +116,27 @@ export default function NominaPage() {
       return
     }
 
+    // Verificar que se hayan seleccionado filtros específicos
+    if (!monthFilter || !yearFilter || monthFilter === "all" || yearFilter === "all") {
+      console.log("No se han seleccionado filtros específicos, no cargando datos")
+      return
+    }
+
     try {
       setIsLoading(true)
+      setHasSearched(true) // Marcar que se ha realizado una búsqueda
       
       // Construir parámetros de consulta basados en los filtros
       const params = new URLSearchParams()
       
-      // Solo agregar filtros si no son "all"
-      if (monthFilter !== "all") {
-        params.append("month", monthFilter)
-      }
-      if (yearFilter !== "all") {
-        params.append("year", yearFilter)
-      }
+      // Siempre agregar mes y año ya que se requieren
+      params.append("month", monthFilter)
+      params.append("year", yearFilter)
       
-      console.log("Cargando nóminas con filtros:", { monthFilter, yearFilter })
+      console.log("Cargando nóminas con filtros específicos:", { monthFilter, yearFilter })
       
       // Cargar nóminas con filtros aplicados
-      const payrollUrl = `/api/payroll${params.toString() ? `?${params.toString()}` : ""}`
+      const payrollUrl = `/api/payroll?${params.toString()}`
       console.log("URL de consulta:", payrollUrl)
       
       const payrollResponse = await fetch(payrollUrl, {
@@ -641,10 +646,9 @@ export default function NominaPage() {
                 <Label>Mes</Label>
                 <Select value={monthFilter} onValueChange={setMonthFilter}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Todos los meses" />
+                    <SelectValue placeholder="Seleccionar mes" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos los meses</SelectItem>
                     {Array.from({ length: 12 }, (_, i) => (
                       <SelectItem key={i + 1} value={(i + 1).toString()}>
                         {getMonthName(i + 1)}
@@ -657,10 +661,9 @@ export default function NominaPage() {
                 <Label>Año</Label>
                 <Select value={yearFilter} onValueChange={setYearFilter}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Todos los años" />
+                    <SelectValue placeholder="Seleccionar año" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos los años</SelectItem>
                     <SelectItem value="2024">2024</SelectItem>
                     <SelectItem value="2025">2025</SelectItem>
                   </SelectContent>
@@ -681,13 +684,17 @@ export default function NominaPage() {
                 </Select>
               </div>
               <div className="flex items-end">
-                <Button variant="outline" onClick={loadData} disabled={isLoading}>
+                <Button 
+                  variant="outline" 
+                  onClick={loadData} 
+                  disabled={isLoading || !monthFilter || !yearFilter}
+                >
                   {isLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <RefreshCw className="mr-2 h-4 w-4" />
                   )}
-                  Actualizar
+                  {!monthFilter || !yearFilter ? "Seleccionar Período" : "Buscar Nóminas"}
                 </Button>
               </div>
             </div>
@@ -764,11 +771,21 @@ export default function NominaPage() {
                 {isLoading ? (
                   <div className="text-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-                    <p className="mt-2">Cargando nóminas...</p>
+                    <p className="mt-2">Buscando nóminas para {getMonthName(parseInt(monthFilter))} {yearFilter}...</p>
+                  </div>
+                ) : !hasSearched ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">Selecciona un mes y año específico para consultar las nóminas</p>
+                    <p className="text-sm text-muted-foreground mt-2">Los filtros de mes y año son obligatorios para realizar la búsqueda</p>
                   </div>
                 ) : filteredPayrolls.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-muted-foreground">No hay nóminas que coincidan con los filtros</p>
+                    <p className="text-muted-foreground">
+                      No se encontraron nóminas para {getMonthName(parseInt(monthFilter))} {yearFilter}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Puedes generar las nóminas para este período usando el botón "Generar Nóminas"
+                    </p>
                   </div>
                 ) : (
                   <Table>
@@ -847,9 +864,13 @@ export default function NominaPage() {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
                     <p className="mt-2">Cargando liquidaciones...</p>
                   </div>
+                ) : !hasSearched ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">Selecciona un período específico para consultar las liquidaciones</p>
+                  </div>
                 ) : filteredLiquidations.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-muted-foreground">No hay liquidaciones que coincidan con los filtros</p>
+                    <p className="text-muted-foreground">No hay liquidaciones para el período seleccionado</p>
                   </div>
                 ) : (
                   <Table>
