@@ -50,7 +50,7 @@ export default function LoginPage() {
   }
 
   // Determinar si estamos en estado de carga
-  const loading = isLoading || isSubmitting
+  const loading = isLoading || isSubmittingmitting
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">

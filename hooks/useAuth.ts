@@ -80,6 +80,17 @@ export function useAuth() {
       setIsLoading(false)
     }
   }
+
+  const refreshSession = async () => {
+    try {
+      const result = await sessionManager.refreshSession()
+      return result.success
+    } catch (err: any) {
+      console.error('Error en refreshSession:', err)
+      setError(err.message)
+      return false
+    }
+  }
   
   return {
     user,
@@ -87,6 +98,7 @@ export function useAuth() {
     isAuthenticated: !!user,
     error,
     login,
-    logout
+    logout,
+    refreshSession
   }
 }
