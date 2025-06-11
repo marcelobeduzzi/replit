@@ -18,7 +18,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { DashboardLayout } from "@/app/dashboard-layout"
+import DashboardLayout from "@/app/dashboard-layout"
 
 interface SidebarItem {
   title: string
@@ -168,5 +168,7 @@ export default function VentasLayout({ children }: { children: React.ReactNode }
         <div className="flex-1 overflow-auto">{children}</div>
       </div>
     </DashboardLayout>
+  )
+}dLayout>
   )
 }

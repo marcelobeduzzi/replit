@@ -1,5 +1,5 @@
 import type React from "react"
-import { DashboardLayout } from "@/app/dashboard-layout"
+import DashboardLayout from "@/app/dashboard-layout"
 
 export default function StockControlLayout({
   children,
