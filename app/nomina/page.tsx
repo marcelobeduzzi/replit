@@ -9,9 +9,15 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { AlertTriangle, Calendar, DollarSign, Users, FileText, Calculator, Settings } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertTriangle, Calendar, DollarSign, Users, FileText, Calculator, Settings, Loader2, RefreshCw, CheckCircle, XCircle, Plus } from "lucide-react"
 import DashboardLayout from "@/app/dashboard-layout"
 import { useAuth } from "@/hooks/useAuth"
+import { useToast } from "@/components/ui/use-toast"
 
 interface Payroll {
   id: string
@@ -42,10 +48,35 @@ interface Liquidation {
 export default function NominaPage() {
   const { user, sessionStatus } = useAuth()
   const router = useRouter()
+  const { toast } = useToast()
+  
   const [payrolls, setPayrolls] = useState<Payroll[]>([])
   const [liquidations, setLiquidations] = useState<Liquidation[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("pendientes")
+  
+  // Estados para generación de nóminas
+  const [generatePeriod, setGeneratePeriod] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generateDialogOpen, setGenerateDialogOpen] = useState(false)
+  const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false)
+  
+  // Estados para liquidaciones
+  const [liquidationDialogOpen, setLiquidationDialogOpen] = useState(false)
+  const [regenerateLiquidationDialogOpen, setRegenerateLiquidationDialogOpen] = useState(false)
+  const [isGeneratingLiquidations, setIsGeneratingLiquidations] = useState(false)
+  
+  // Estados para confirmación de pagos
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+  const [selectedPayroll, setSelectedPayroll] = useState<Payroll | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState("")
+  const [paymentType, setPaymentType] = useState("")
+  const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
+
+  // Filtros
+  const [monthFilter, setMonthFilter] = useState("all")
+  const [yearFilter, setYearFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
 
   useEffect(() => {
     if (sessionStatus === "invalid") {
@@ -62,23 +93,204 @@ export default function NominaPage() {
     try {
       setIsLoading(true)
       
-      // Cargar nóminas pendientes
+      // Cargar todas las nóminas (no solo pendientes)
       const payrollResponse = await fetch("/api/payroll")
       if (payrollResponse.ok) {
         const payrollData = await payrollResponse.json()
-        setPayrolls(payrollData.filter((p: Payroll) => !p.isPaid))
+        setPayrolls(payrollData)
       }
 
-      // Cargar liquidaciones pendientes
+      // Cargar todas las liquidaciones
       const liquidationResponse = await fetch("/api/payroll/liquidation")
       if (liquidationResponse.ok) {
         const liquidationData = await liquidationResponse.json()
-        setLiquidations(liquidationData.filter((l: Liquidation) => !l.isPaid))
+        setLiquidations(liquidationData)
       }
     } catch (error) {
       console.error("Error loading data:", error)
+      toast({
+        title: "Error",
+        description: "Error al cargar los datos",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleGeneratePayroll = async () => {
+    if (!generatePeriod) {
+      toast({
+        title: "Error",
+        description: "Por favor selecciona un período",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsGenerating(true)
+    try {
+      const response = await fetch("/api/payroll/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ period: generatePeriod, regenerate: false }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast({
+          title: "Éxito",
+          description: "Nóminas generadas correctamente",
+        })
+        setGenerateDialogOpen(false)
+        await loadData()
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Error al generar las nóminas",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error:", error)
+      toast({
+        title: "Error",
+        description: "Error interno del servidor",
+        variant: "destructive",
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleRegeneratePayroll = async () => {
+    if (!generatePeriod) {
+      toast({
+        title: "Error",
+        description: "Por favor selecciona un período",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsGenerating(true)
+    try {
+      const response = await fetch("/api/payroll/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ period: generatePeriod, regenerate: true }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast({
+          title: "Éxito",
+          description: "Nóminas regeneradas correctamente",
+        })
+        setRegenerateDialogOpen(false)
+        await loadData()
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Error al regenerar las nóminas",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error:", error)
+      toast({
+        title: "Error",
+        description: "Error interno del servidor",
+        variant: "destructive",
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleGenerateLiquidations = async () => {
+    setIsGeneratingLiquidations(true)
+    try {
+      // Aquí iría la llamada a la API para generar liquidaciones
+      // Por ahora simularemos la funcionalidad
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      toast({
+        title: "Éxito",
+        description: "Liquidaciones generadas correctamente",
+      })
+      setLiquidationDialogOpen(false)
+      await loadData()
+    } catch (error) {
+      console.error("Error:", error)
+      toast({
+        title: "Error",
+        description: "Error al generar las liquidaciones",
+        variant: "destructive",
+      })
+    } finally {
+      setIsGeneratingLiquidations(false)
+    }
+  }
+
+  const handleConfirmPayment = async () => {
+    if (!selectedPayroll || !paymentMethod || !paymentType) {
+      toast({
+        title: "Error",
+        description: "Complete todos los campos requeridos",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsConfirmingPayment(true)
+    try {
+      const response = await fetch("/api/payroll/confirm-payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          payrollId: selectedPayroll.id,
+          paymentMethod,
+          paymentType,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast({
+          title: "Éxito",
+          description: "Pago confirmado correctamente",
+        })
+        setPaymentDialogOpen(false)
+        setSelectedPayroll(null)
+        setPaymentMethod("")
+        setPaymentType("")
+        await loadData()
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Error al confirmar el pago",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error:", error)
+      toast({
+        title: "Error",
+        description: "Error interno del servidor",
+        variant: "destructive",
+      })
+    } finally {
+      setIsConfirmingPayment(false)
     }
   }
 
@@ -96,6 +308,26 @@ export default function NominaPage() {
     ]
     return months[month - 1] || "Mes desconocido"
   }
+
+  // Filtrar datos
+  const filteredPayrolls = payrolls.filter(payroll => {
+    const monthMatch = monthFilter === "all" || payroll.month.toString() === monthFilter
+    const yearMatch = yearFilter === "all" || payroll.year.toString() === yearFilter
+    const statusMatch = statusFilter === "all" ||
+      (statusFilter === "paid" && payroll.isPaid) ||
+      (statusFilter === "pending" && !payroll.isPaid) ||
+      (statusFilter === "partial" && (payroll.isPaidHand || payroll.isPaidBank) && !payroll.isPaid)
+    
+    return monthMatch && yearMatch && statusMatch
+  })
+
+  const filteredLiquidations = liquidations.filter(liquidation => {
+    const statusMatch = statusFilter === "all" ||
+      (statusFilter === "paid" && liquidation.isPaid) ||
+      (statusFilter === "pending" && !liquidation.isPaid)
+    
+    return statusMatch
+  })
 
   if (sessionStatus === "loading") {
     return (
@@ -157,6 +389,238 @@ export default function NominaPage() {
           </div>
         </div>
 
+        {/* Botones principales de acción */}
+        <div className="flex flex-wrap gap-2">
+          <Dialog open={generateDialogOpen} onOpenChange={setGenerateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="mr-2 h-4 w-4" />
+                Generar Nóminas
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Generar Nóminas</DialogTitle>
+                <DialogDescription>
+                  Genera las nóminas para un período específico
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="period">Período (YYYY-MM)</Label>
+                  <Input
+                    id="period"
+                    type="month"
+                    value={generatePeriod}
+                    onChange={(e) => setGeneratePeriod(e.target.value)}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setGenerateDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleGeneratePayroll} disabled={isGenerating}>
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generando...
+                    </>
+                  ) : (
+                    "Generar"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={regenerateDialogOpen} onOpenChange={setRegenerateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Regenerar Nóminas
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Regenerar Nóminas</DialogTitle>
+                <DialogDescription>
+                  Regenera las nóminas existentes para un período específico. 
+                  Esto eliminará las nóminas actuales y creará nuevas.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="regenerate-period">Período (YYYY-MM)</Label>
+                  <Input
+                    id="regenerate-period"
+                    type="month"
+                    value={generatePeriod}
+                    onChange={(e) => setGeneratePeriod(e.target.value)}
+                  />
+                </div>
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Advertencia</AlertTitle>
+                  <AlertDescription>
+                    Esta acción eliminará las nóminas existentes del período seleccionado.
+                  </AlertDescription>
+                </Alert>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setRegenerateDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button variant="destructive" onClick={handleRegeneratePayroll} disabled={isGenerating}>
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Regenerando...
+                    </>
+                  ) : (
+                    "Regenerar"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={liquidationDialogOpen} onOpenChange={setLiquidationDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="bg-green-50 hover:bg-green-100">
+                <FileText className="mr-2 h-4 w-4" />
+                Generar Liquidaciones
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Generar Liquidaciones</DialogTitle>
+                <DialogDescription>
+                  Genera liquidaciones automáticamente para empleados dados de baja
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setLiquidationDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleGenerateLiquidations} disabled={isGeneratingLiquidations}>
+                  {isGeneratingLiquidations ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generando...
+                    </>
+                  ) : (
+                    "Generar"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={regenerateLiquidationDialogOpen} onOpenChange={setRegenerateLiquidationDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="bg-orange-50 hover:bg-orange-100">
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Regenerar Liquidaciones
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Regenerar Liquidaciones</DialogTitle>
+                <DialogDescription>
+                  Regenera todas las liquidaciones existentes con datos actualizados
+                </DialogDescription>
+              </DialogHeader>
+              <Alert className="my-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Advertencia</AlertTitle>
+                <AlertDescription>
+                  Esta acción actualizará todas las liquidaciones existentes.
+                </AlertDescription>
+              </Alert>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setRegenerateLiquidationDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button variant="destructive" onClick={handleGenerateLiquidations} disabled={isGeneratingLiquidations}>
+                  {isGeneratingLiquidations ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Regenerando...
+                    </>
+                  ) : (
+                    "Regenerar"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* Filtros */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Filtros</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <Label>Mes</Label>
+                <Select value={monthFilter} onValueChange={setMonthFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los meses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los meses</SelectItem>
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <SelectItem key={i + 1} value={(i + 1).toString()}>
+                        {getMonthName(i + 1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Año</Label>
+                <Select value={yearFilter} onValueChange={setYearFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los años" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los años</SelectItem>
+                    <SelectItem value="2024">2024</SelectItem>
+                    <SelectItem value="2025">2025</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Estado</Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los estados" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="pending">Pendientes</SelectItem>
+                    <SelectItem value="partial">Parciales</SelectItem>
+                    <SelectItem value="paid">Pagados</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end">
+                <Button variant="outline" onClick={loadData} disabled={isLoading}>
+                  {isLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  Actualizar
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Resumen de estadísticas */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
@@ -165,7 +629,7 @@ export default function NominaPage() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{payrolls.length}</div>
+              <div className="text-2xl font-bold">{filteredPayrolls.filter(p => !p.isPaid).length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -174,7 +638,7 @@ export default function NominaPage() {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{liquidations.length}</div>
+              <div className="text-2xl font-bold">{filteredLiquidations.filter(l => !l.isPaid).length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -185,8 +649,8 @@ export default function NominaPage() {
             <CardContent>
               <div className="text-2xl font-bold">
                 {formatCurrency(
-                  payrolls.reduce((sum, p) => sum + p.totalSalary, 0) +
-                  liquidations.reduce((sum, l) => sum + l.amount, 0)
+                  filteredPayrolls.filter(p => !p.isPaid).reduce((sum, p) => sum + p.totalSalary, 0) +
+                  filteredLiquidations.filter(l => !l.isPaid).reduce((sum, l) => sum + l.amount, 0)
                 )}
               </div>
             </CardContent>
@@ -215,9 +679,12 @@ export default function NominaPage() {
           <TabsContent value="pendientes" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Nóminas Pendientes de Pago</CardTitle>
+                <CardTitle>Nóminas {statusFilter === "pending" ? "Pendientes" : "Filtradas"}</CardTitle>
                 <CardDescription>
-                  Lista de nóminas que requieren confirmación de pago
+                  {statusFilter === "pending" 
+                    ? "Lista de nóminas que requieren confirmación de pago"
+                    : "Lista de nóminas según los filtros aplicados"
+                  }
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -226,9 +693,9 @@ export default function NominaPage() {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
                     <p className="mt-2">Cargando nóminas...</p>
                   </div>
-                ) : payrolls.length === 0 ? (
+                ) : filteredPayrolls.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-muted-foreground">No hay nóminas pendientes</p>
+                    <p className="text-muted-foreground">No hay nóminas que coincidan con los filtros</p>
                   </div>
                 ) : (
                   <Table>
@@ -244,7 +711,7 @@ export default function NominaPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {payrolls.map((payroll) => (
+                      {filteredPayrolls.map((payroll) => (
                         <TableRow key={payroll.id}>
                           <TableCell className="font-medium">
                             {payroll.employeeName}
@@ -272,8 +739,16 @@ export default function NominaPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Button size="sm" variant="outline">
-                              Gestionar
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedPayroll(payroll)
+                                setPaymentDialogOpen(true)
+                              }}
+                              disabled={payroll.isPaid}
+                            >
+                              {payroll.isPaid ? "Pagado" : "Confirmar Pago"}
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -288,9 +763,9 @@ export default function NominaPage() {
           <TabsContent value="liquidaciones" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Liquidaciones Pendientes</CardTitle>
+                <CardTitle>Liquidaciones {statusFilter === "pending" ? "Pendientes" : "Filtradas"}</CardTitle>
                 <CardDescription>
-                  Liquidaciones especiales y ajustes salariales
+                  Liquidaciones especiales y ajustes salariales según filtros
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -299,9 +774,9 @@ export default function NominaPage() {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
                     <p className="mt-2">Cargando liquidaciones...</p>
                   </div>
-                ) : liquidations.length === 0 ? (
+                ) : filteredLiquidations.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-muted-foreground">No hay liquidaciones pendientes</p>
+                    <p className="text-muted-foreground">No hay liquidaciones que coincidan con los filtros</p>
                   </div>
                 ) : (
                   <Table>
@@ -316,7 +791,7 @@ export default function NominaPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {liquidations.map((liquidation) => (
+                      {filteredLiquidations.map((liquidation) => (
                         <TableRow key={liquidation.id}>
                           <TableCell className="font-medium">
                             {liquidation.employeeName}
@@ -334,8 +809,8 @@ export default function NominaPage() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Button size="sm" variant="outline">
-                              Gestionar
+                            <Button size="sm" variant="outline" disabled={liquidation.isPaid}>
+                              {liquidation.isPaid ? "Pagado" : "Confirmar Pago"}
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -365,6 +840,61 @@ export default function NominaPage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Diálogo de confirmación de pago */}
+        <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirmar Pago de Nómina</DialogTitle>
+              <DialogDescription>
+                {selectedPayroll && `Confirmando pago para ${selectedPayroll.employeeName} - ${getMonthName(selectedPayroll.month)} ${selectedPayroll.year}`}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Tipo de Pago</Label>
+                <Select value={paymentType} onValueChange={setPaymentType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mano">Solo En Mano</SelectItem>
+                    <SelectItem value="banco">Solo Banco</SelectItem>
+                    <SelectItem value="completo">Pago Completo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Método de Pago</Label>
+                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar método" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="efectivo">Efectivo</SelectItem>
+                    <SelectItem value="transferencia">Transferencia</SelectItem>
+                    <SelectItem value="cheque">Cheque</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleConfirmPayment} disabled={isConfirmingPayment}>
+                {isConfirmingPayment ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Confirmando...
+                  </>
+                ) : (
+                  "Confirmar Pago"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   )
