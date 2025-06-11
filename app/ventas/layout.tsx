@@ -169,6 +169,4 @@ export default function VentasLayout({ children }: { children: React.ReactNode }
       </div>
     </DashboardLayout>
   )
-}dLayout>
-  )
 }

@@ -120,7 +120,13 @@ const NavLink = memo(
 NavLink.displayName = "NavLink"
 
 // Componente principal con exportación por defecto
-export default function DashboardLayout({ children, isLoading }: { children: React.ReactNode; isLoading?: boolean }) {
+export default function DashboardLayout({ 
+  children, 
+  isLoading 
+}: { 
+  children: React.ReactNode; 
+  isLoading?: boolean 
+}) {
   const pathname = usePathname()
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null)
   const { user, logout, refreshSession } = useAuth()
