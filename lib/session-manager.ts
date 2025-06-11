@@ -159,8 +159,8 @@ class SessionManager {
     const now = Date.now()
     const timeUntilExpiry = expiresAtMs - now
     
-    // Refrescar cuando queden X minutos para expirar (según configuración)
-    const refreshMarginMs = supabaseConfig.session.refreshMarginMinutes * 60 * 1000
+    // Usar un margen de 10 minutos por defecto si no hay configuración
+    const refreshMarginMs = 10 * 60 * 1000 // 10 minutos
     const refreshTime = Math.max(timeUntilExpiry - refreshMarginMs, 0)
     
     // Si ya estamos dentro del margen de refresco, refrescar inmediatamente
@@ -170,7 +170,7 @@ class SessionManager {
       return
     }
     
-    console.log(`Programando refresco de token en ${Math.floor(refreshTime / 1000)} segundos (${new Date(Date.now() + refreshTime).toLocaleTimeString()})`)
+    console.log(`Programando refresco de token en ${Math.floor(refreshTime / 60000)} minutos`)
     
     this.refreshTimeout = setTimeout(() => {
       this.refreshToken()

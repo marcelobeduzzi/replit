@@ -8,15 +8,20 @@ export function useAuth() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Calcular sessionStatus basado en el estado actual
+  const sessionStatus = isLoading ? "loading" : (user ? "valid" : "invalid")
+
   useEffect(() => {
     const loadUser = async () => {
       try {
         setIsLoading(true)
         const currentUser = await sessionManager.getUser()
+        console.log("useAuth - Usuario cargado:", currentUser ? currentUser.email : "null")
         setUser(currentUser)
       } catch (err: any) {
         console.error('Error al cargar usuario:', err)
         setError(err.message)
+        setUser(null)
       } finally {
         setIsLoading(false)
       }
@@ -24,14 +29,19 @@ export function useAuth() {
 
     loadUser()
 
-    // Configurar un intervalo para verificar el usuario cada minuto
-    // Esto ayuda a mantener la UI sincronizada con el estado de autenticación
+    // Reducir la frecuencia de verificación para mejorar performance
     const interval = setInterval(async () => {
-      const currentUser = await sessionManager.getUser()
-      if (JSON.stringify(currentUser) !== JSON.stringify(user)) {
-        setUser(currentUser)
+      try {
+        const currentUser = await sessionManager.getUser()
+        if (JSON.stringify(currentUser) !== JSON.stringify(user)) {
+          console.log("useAuth - Usuario actualizado:", currentUser ? currentUser.email : "null")
+          setUser(currentUser)
+        }
+      } catch (err) {
+        console.error('Error al verificar usuario:', err)
+        setUser(null)
       }
-    }, 60000)
+    }, 120000) // Cada 2 minutos en lugar de 1
 
     return () => clearInterval(interval)
   }, [])
@@ -48,8 +58,8 @@ export function useAuth() {
         return { success: false, error: result.error }
       }
 
-      setUser(result.data.user)
-      return { success: true, data: result.data }
+      setUser(result.user)
+      return { success: true, data: { user: result.user } }
     } catch (err: any) {
       console.error('Error en login:', err)
       setError(err.message)
@@ -84,6 +94,10 @@ export function useAuth() {
   const refreshSession = async () => {
     try {
       const result = await sessionManager.refreshSession()
+      if (result.success) {
+        const currentUser = await sessionManager.getUser()
+        setUser(currentUser)
+      }
       return result.success
     } catch (err: any) {
       console.error('Error en refreshSession:', err)
@@ -95,6 +109,7 @@ export function useAuth() {
   return {
     user,
     isLoading,
+    sessionStatus, // Agregar sessionStatus al return
     isAuthenticated: !!user,
     error,
     login,

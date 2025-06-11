@@ -79,29 +79,41 @@ export default function NominaPage() {
   const [statusFilter, setStatusFilter] = useState("all")
 
   useEffect(() => {
-    console.log("Nóminas - sessionStatus:", sessionStatus, "user:", user)
+    console.log("Nóminas - sessionStatus:", sessionStatus, "user:", user ? user.email : null)
+    
+    // Esperar a que termine la carga antes de tomar decisiones
+    if (sessionStatus === "loading") {
+      return
+    }
     
     // Solo redirigir si estamos seguros de que no hay sesión válida
-    if (sessionStatus === "invalid" && user === null) {
+    if (sessionStatus === "invalid") {
       console.log("Redirigiendo a login desde nóminas")
       router.push("/login")
       return
     }
 
-    if (sessionStatus === "valid" && user) {
+    // Cargar datos solo si hay sesión válida y no estamos cargando
+    if (sessionStatus === "valid" && user && !isLoading) {
       console.log("Sesión válida, cargando datos de nóminas")
       loadData()
     }
-  }, [sessionStatus, user, router])
+  }, [sessionStatus, user?.id]) // Usar user.id en lugar de user completo para evitar renders innecesarios
 
-  // Recargar datos cuando cambien los filtros
+  // Recargar datos cuando cambien los filtros (solo si hay sesión válida)
   useEffect(() => {
-    if (sessionStatus === "valid") {
+    if (sessionStatus === "valid" && user && !isLoading) {
       loadData()
     }
-  }, [monthFilter, yearFilter, statusFilter])
+  }, [monthFilter, yearFilter, statusFilter, sessionStatus])
 
   const loadData = async () => {
+    // Prevenir múltiples llamadas simultáneas
+    if (isLoading) {
+      console.log("Ya hay una carga en progreso, saltando...")
+      return
+    }
+
     try {
       setIsLoading(true)
       
@@ -122,34 +134,49 @@ export default function NominaPage() {
       const payrollUrl = `/api/payroll${params.toString() ? `?${params.toString()}` : ""}`
       console.log("URL de consulta:", payrollUrl)
       
-      const payrollResponse = await fetch(payrollUrl)
+      const payrollResponse = await fetch(payrollUrl, {
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      })
+      
       if (payrollResponse.ok) {
         const payrollData = await payrollResponse.json()
         console.log("Nóminas cargadas:", payrollData.length)
-        console.log("Datos de nóminas:", payrollData)
         setPayrolls(payrollData)
       } else {
         const errorText = await payrollResponse.text()
         console.error("Error en respuesta de nóminas:", payrollResponse.status, errorText)
-        toast({
-          title: "Error",
-          description: `Error al cargar las nóminas: ${payrollResponse.status}`,
-          variant: "destructive",
-        })
+        
+        // Si es error 401, no mostrar toast (se redirigirá automáticamente)
+        if (payrollResponse.status !== 401) {
+          toast({
+            title: "Error",
+            description: `Error al cargar las nóminas: ${payrollResponse.status}`,
+            variant: "destructive",
+          })
+        }
       }
 
-      // Cargar todas las liquidaciones
-      const liquidationResponse = await fetch("/api/payroll/liquidation")
-      if (liquidationResponse.ok) {
-        const liquidationData = await liquidationResponse.json()
-        console.log("Liquidaciones cargadas:", liquidationData.length)
-        setLiquidations(liquidationData)
+      // Cargar liquidaciones solo si las nóminas se cargaron correctamente
+      if (payrollResponse.ok) {
+        const liquidationResponse = await fetch("/api/payroll/liquidation", {
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        })
+        
+        if (liquidationResponse.ok) {
+          const liquidationData = await liquidationResponse.json()
+          console.log("Liquidaciones cargadas:", liquidationData.length)
+          setLiquidations(liquidationData)
+        }
       }
     } catch (error) {
       console.error("Error loading data:", error)
       toast({
         title: "Error",
-        description: "Error al cargar los datos",
+        description: "Error de conexión al cargar los datos",
         variant: "destructive",
       })
     } finally {
@@ -380,7 +407,7 @@ export default function NominaPage() {
         <div className="flex items-center justify-center h-screen">
           <div className="text-center">
             <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-            <p className="mt-4">Cargando...</p>
+            <p className="mt-4">Verificando autenticación...</p>
           </div>
         </div>
       </DashboardLayout>
@@ -388,18 +415,18 @@ export default function NominaPage() {
   }
 
   // Solo mostrar acceso denegado si estamos seguros de que no hay sesión
-  if (sessionStatus === "invalid" && user === null) {
+  if (sessionStatus === "invalid") {
     return (
       <DashboardLayout>
         <Card className="border-red-200 bg-red-50">
           <CardHeader>
             <CardTitle className="text-red-700 flex items-center">
               <AlertTriangle className="mr-2 h-5 w-5" />
-              Acceso Denegado
+              Sesión Expirada
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-red-700">No tienes permisos para acceder a esta sección.</p>
+            <p className="text-red-700">Tu sesión ha expirado. Por favor inicia sesión nuevamente.</p>
             <Button asChild className="mt-4">
               <Link href="/login">Iniciar Sesión</Link>
             </Button>
