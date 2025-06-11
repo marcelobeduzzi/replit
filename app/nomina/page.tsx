@@ -1479,84 +1479,48 @@ export default function NominaPage() {
 
           
 <TabsContent value="liquidaciones" className="space-y-4">
+              {/* Totalizador de liquidaciones pendientes */}
+              {liquidations.length > 0 && (
+                <Card className="mb-6">
+                  <CardContent className="pt-6">
+                    <h3 className="text-lg font-medium mb-4">Resumen de Liquidaciones Pendientes</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 rounded-lg bg-orange-50">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <Users className="h-5 w-5 text-orange-600" />
+                            <span className="ml-2 font-medium">Liquidaciones Pendientes</span>
+                          </div>
+                          <span className="text-lg font-bold">{liquidations.length}</span>
+                        </div>
+                      </div>
+                      <div className="p-4 rounded-lg bg-red-50">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <DollarSign className="h-5 w-5 text-red-600" />
+                            <span className="ml-2 font-medium">Total a Pagar</span>
+                          </div>
+                          <span className="text-lg font-bold">{formatCurrency(liquidationTotals.totalAmount)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               <Card>
                 <CardHeader>
                   <CardTitle>Liquidaciones Pendientes</CardTitle>
                   <CardDescription>Liquidaciones de empleados que han finalizado su relación laboral</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {isLoadingLiquidations ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : liquidations.length === 0 ? (
-                    <div className="text-center text-muted-foreground py-8">
-                      No hay liquidaciones pendientes
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Empleado</TableHead>
-                            <TableHead>Fecha de Egreso</TableHead>
-                            <TableHead>Días Trabajados</TableHead>
-                            <TableHead>Vacaciones</TableHead>
-                            <TableHead>Aguinaldo</TableHead>
-                            <TableHead>Compensación</TableHead>
-                            <TableHead>Total</TableHead>
-                            <TableHead>Acciones</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {liquidations.map((liquidation) => (
-                            <TableRow key={liquidation.id}>
-                              <TableCell className="font-medium">
-                                {liquidation.employeeName}
-                              </TableCell>
-                              <TableCell>
-                                {liquidation.terminationDate ? 
-                                  new Date(liquidation.terminationDate).toLocaleDateString() : 
-                                  "-"
-                                }
-                              </TableCell>
-                              <TableCell>{liquidation.workedDays}</TableCell>
-                              <TableCell>
-                                {liquidation.includeVacation ? 
-                                  formatCurrency(liquidation.proportionalVacation) : 
-                                  "-"
-                                }
-                              </TableCell>
-                              <TableCell>
-                                {liquidation.includeBonus ? 
-                                  formatCurrency(liquidation.proportionalBonus) : 
-                                  "-"
-                                }
-                              </TableCell>
-                              <TableCell>
-                                {formatCurrency(liquidation.compensationAmount)}
-                              </TableCell>
-                              <TableCell className="font-bold">
-                                {formatCurrency(liquidation.totalAmount)}
-                              </TableCell>
-                              <TableCell>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    // Aquí se puede agregar funcionalidad para confirmar pago
-                                    console.log("Confirmar pago de liquidación:", liquidation.id)
-                                  }}
-                                >
-                                  Confirmar Pago
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
+                  <DataTable
+                    columns={liquidationsColumns}
+                    data={liquidations}
+                    searchColumn="employeeId"
+                    searchPlaceholder="Buscar empleado..."
+                    isLoading={isLoadingLiquidations}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>

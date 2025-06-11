@@ -142,7 +142,7 @@ export default function DashboardLayout({
         // Usar el sessionManager para refrescar la sesión
         await sessionManager.getSession()
         console.log("Session refreshed")
-        
+
         // También llamar al refreshSession del contexto para mantener compatibilidad
         if (refreshSession) {
           await refreshSession()
@@ -400,7 +400,7 @@ export default function DashboardLayout({
     try {
       // Usar el sessionManager para cerrar sesión
       await sessionManager.logout()
-      
+
       // También llamar al logout del contexto para mantener compatibilidad
       logout()
     } catch (error) {
@@ -534,3 +534,6 @@ export default function DashboardLayout({
     </div>
   )
 }
+
+// Exportación por defecto principal
+export default DashboardLayout
