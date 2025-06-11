@@ -18,6 +18,7 @@ import DashboardLayout from "@/app/dashboard-layout"
 import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/components/ui/use-toast"
 import { supabase } from "@/lib/supabase/client"
+import { sessionManager } from "@/lib/session-manager"
 
 interface Payroll {
   id: string
@@ -899,7 +900,7 @@ export default function NominaPage() {
                           <TableCell>
                             <Button 
                               size="sm" 
-Adding browser cookies verification before fetch.                              variant="outline"
+                              variant="outline"
                               onClick={() => {
                                 setSelectedPayroll(payroll)
                                 setPaymentDialogOpen(true)
