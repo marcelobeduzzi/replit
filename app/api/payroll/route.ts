@@ -38,15 +38,25 @@ export async function GET(request: Request) {
 
     // Filtrar por mes y año si se proporcionan
     if (month && year) {
-      query = query.eq("month", month).eq("year", year)
+      query = query.eq("month", parseInt(month)).eq("year", parseInt(year))
+      console.log(`Filtrando por mes: ${month}, año: ${year}`)
+    } else if (month) {
+      query = query.eq("month", parseInt(month))
+      console.log(`Filtrando solo por mes: ${month}`)
+    } else if (year) {
+      query = query.eq("year", parseInt(year))
+      console.log(`Filtrando solo por año: ${year}`)
     }
 
+    console.log("Ejecutando consulta de nóminas...")
     const { data: payrolls, error } = await query
 
     if (error) {
       console.error("Error al obtener nóminas:", error)
       return NextResponse.json({ error: "Error al obtener nóminas" }, { status: 500 })
     }
+
+    console.log(`Nóminas encontradas: ${payrolls?.length || 0}`)
 
     // Formatear los datos para el frontend
     const formattedPayrolls = payrolls.map((payroll: any) => {

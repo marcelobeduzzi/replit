@@ -89,21 +89,53 @@ export default function NominaPage() {
     }
   }, [sessionStatus, router])
 
+  // Recargar datos cuando cambien los filtros
+  useEffect(() => {
+    if (sessionStatus === "valid") {
+      loadData()
+    }
+  }, [monthFilter, yearFilter, statusFilter])
+
   const loadData = async () => {
     try {
       setIsLoading(true)
       
-      // Cargar todas las nóminas (no solo pendientes)
-      const payrollResponse = await fetch("/api/payroll")
+      // Construir parámetros de consulta basados en los filtros
+      const params = new URLSearchParams()
+      
+      // Solo agregar filtros si no son "all"
+      if (monthFilter !== "all") {
+        params.append("month", monthFilter)
+      }
+      if (yearFilter !== "all") {
+        params.append("year", yearFilter)
+      }
+      
+      console.log("Cargando nóminas con filtros:", { monthFilter, yearFilter })
+      
+      // Cargar nóminas con filtros aplicados
+      const payrollUrl = `/api/payroll${params.toString() ? `?${params.toString()}` : ""}`
+      console.log("URL de consulta:", payrollUrl)
+      
+      const payrollResponse = await fetch(payrollUrl)
       if (payrollResponse.ok) {
         const payrollData = await payrollResponse.json()
+        console.log("Nóminas cargadas:", payrollData.length)
         setPayrolls(payrollData)
+      } else {
+        console.error("Error en respuesta de nóminas:", payrollResponse.status)
+        toast({
+          title: "Error",
+          description: "Error al cargar las nóminas",
+          variant: "destructive",
+        })
       }
 
       // Cargar todas las liquidaciones
       const liquidationResponse = await fetch("/api/payroll/liquidation")
       if (liquidationResponse.ok) {
         const liquidationData = await liquidationResponse.json()
+        console.log("Liquidaciones cargadas:", liquidationData.length)
         setLiquidations(liquidationData)
       }
     } catch (error) {
@@ -311,12 +343,18 @@ export default function NominaPage() {
 
   // Filtrar datos
   const filteredPayrolls = payrolls.filter(payroll => {
-    const monthMatch = monthFilter === "all" || payroll.month.toString() === monthFilter
-    const yearMatch = yearFilter === "all" || payroll.year.toString() === yearFilter
+    // Verificar que el payroll tenga las propiedades necesarias
+    if (!payroll) return false
+    
+    const payrollMonth = payroll.month || (payroll.period ? parseInt(payroll.period.split('-')[1]) : null)
+    const payrollYear = payroll.year || (payroll.period ? parseInt(payroll.period.split('-')[0]) : null)
+    
+    const monthMatch = monthFilter === "all" || (payrollMonth && payrollMonth.toString() === monthFilter)
+    const yearMatch = yearFilter === "all" || (payrollYear && payrollYear.toString() === yearFilter)
     const statusMatch = statusFilter === "all" ||
-      (statusFilter === "paid" && payroll.isPaid) ||
-      (statusFilter === "pending" && !payroll.isPaid) ||
-      (statusFilter === "partial" && (payroll.isPaidHand || payroll.isPaidBank) && !payroll.isPaid)
+      (statusFilter === "paid" && (payroll.isPaid || payroll.is_paid)) ||
+      (statusFilter === "pending" && !(payroll.isPaid || payroll.is_paid)) ||
+      (statusFilter === "partial" && ((payroll.isPaidHand || payroll.is_paid_hand) || (payroll.isPaidBank || payroll.is_paid_bank)) && !(payroll.isPaid || payroll.is_paid))
     
     return monthMatch && yearMatch && statusMatch
   })
