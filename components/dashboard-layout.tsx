@@ -8,5 +8,5 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   return <div>{children}</div>
 }
 
-// No exportar por defecto para evitar conflictos
+// Exportación por defecto corregida
 export default DashboardLayout
