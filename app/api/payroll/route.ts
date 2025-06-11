@@ -4,18 +4,38 @@ import { cookies } from "next/headers"
 
 export async function GET(request: Request) {
   try {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    console.log("=== INICIO API PAYROLL DEBUG ===")
+    console.log("Request URL:", request.url)
+    console.log("Request headers:", Object.fromEntries(request.headers.entries()))
 
-    // Verificación de autenticación simplificada
+    const cookieStore = await cookies()
+    console.log("Cookies obtenidas del store")
+
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    console.log("Cliente Supabase creado")
+
+    // Verificación de autenticación con más detalles
+    console.log("Verificando usuario...")
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     
+    console.log("Resultado de auth.getUser():")
+    console.log("- User:", user ? { id: user.id, email: user.email } : null)
+    console.log("- Error:", userError)
+
     if (userError || !user) {
-      console.log("Error de autenticación o usuario no encontrado:", userError?.message || "No user")
+      console.log("❌ AUTENTICACIÓN FALLIDA")
+      console.log("- Error completo:", JSON.stringify(userError, null, 2))
+      console.log("- Usuario:", user)
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    console.log("API Payroll - Usuario autenticado:", user.email)
+    console.log("✅ Usuario autenticado:", user.email)
+
+    // Verificar la sesión actual también
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+    console.log("Sesión actual:")
+    console.log("- Session:", sessionData.session ? "Existe" : "No existe")
+    console.log("- Error:", sessionError)
 
     // Obtener parámetros de consulta
     const url = new URL(request.url)
@@ -60,14 +80,32 @@ export async function GET(request: Request) {
     }
 
     // Verificar primero si hay datos en la tabla
-    const { data: countData, error: countError } = await supabase
+    console.log("🔍 Verificando acceso a tabla payroll...")
+    const { data: countData, error: countError, count } = await supabase
       .from("payroll")
       .select("id", { count: "exact", head: true })
 
     if (countError) {
-      console.error("Error al verificar tabla payroll:", countError)
+      console.error("❌ Error al verificar tabla payroll:", countError)
+      console.error("Error completo:", JSON.stringify(countError, null, 2))
     } else {
-      console.log(`Total de registros en tabla payroll: ${countData?.length || 0}`)
+      console.log(`✅ Acceso a tabla confirmado. Total registros: ${count || 0}`)
+    }
+
+    // Verificar también si hay datos para el período específico
+    if (month && year) {
+      console.log(`🔍 Verificando datos para ${getMonthName(parseInt(month))} ${year}...`)
+      const { data: periodData, error: periodError, count: periodCount } = await supabase
+        .from("payroll")
+        .select("id", { count: "exact", head: true })
+        .eq("month", parseInt(month))
+        .eq("year", parseInt(year))
+
+      if (periodError) {
+        console.error("❌ Error al verificar período:", periodError)
+      } else {
+        console.log(`📊 Registros para ${getMonthName(parseInt(month))} ${year}: ${periodCount || 0}`)
+      }
     }
 
     console.log("Ejecutando consulta de nóminas...")
@@ -138,4 +176,13 @@ export async function GET(request: Request) {
     console.error("Error en GET payrolls:", error)
     return NextResponse.json({ error: error.message || "Error interno del servidor" }, { status: 500 })
   }
+}
+
+// Función auxiliar para nombres de meses
+function getMonthName(month: number) {
+  const months = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  ]
+  return months[month - 1] || "Mes desconocido"
 }
