@@ -1,3 +1,6 @@
+The code changes the import statement for DashboardLayout to use the default export.
+```
+```replit_final_file
 "use client"
 
 import { useState, useEffect } from "react"
@@ -832,4 +835,3 @@ export default function DiagnosticPage() {
     </DashboardLayout>
   )
 }
-
