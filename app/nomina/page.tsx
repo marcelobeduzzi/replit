@@ -154,20 +154,22 @@ export default function NominaPage() {
         console.error("Error en respuesta de nóminas:", payrollResponse.status, errorText)
 
         if (payrollResponse.status === 401) {
-          console.log("Error de autenticación, redirigiendo al login...")
-          // Intentar refrescar la sesión antes de redirigir
-          try {
-            const refreshResult = await supabase.auth.refreshSession()
-            if (refreshResult.error) {
-              window.location.href = '/login'
-              return
-            }
-            // Si el refresh fue exitoso, reintentar la carga
-            setTimeout(() => loadData(), 1000)
-          } catch (err) {
-            console.error("Error al refrescar sesión:", err)
-            window.location.href = '/login'
-          }
+          console.log("Error de autenticación detectado")
+          
+          // Mostrar mensaje al usuario y no redirigir automáticamente
+          toast({
+            title: "Sesión Expirada",
+            description: "Tu sesión ha expirado. Por favor, actualiza la página o inicia sesión nuevamente.",
+            variant: "destructive",
+            duration: 5000
+          })
+
+          // Limpiar datos locales
+          setPayrolls([])
+          setLiquidations([])
+          
+          // No redirigir automáticamente, permitir al usuario decidir
+          return
         } else {
           toast({
             title: "Error",

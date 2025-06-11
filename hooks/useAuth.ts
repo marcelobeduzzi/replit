@@ -29,19 +29,18 @@ export function useAuth() {
 
     loadUser()
 
-    // Reducir la frecuencia de verificación para mejorar performance
+    // Verificación muy reducida para mejorar performance
     const interval = setInterval(async () => {
       try {
         const currentUser = await sessionManager.getUser()
         if (JSON.stringify(currentUser) !== JSON.stringify(user)) {
-          console.log("useAuth - Usuario actualizado:", currentUser ? currentUser.email : "null")
           setUser(currentUser)
         }
       } catch (err) {
         console.error('Error al verificar usuario:', err)
         setUser(null)
       }
-    }, 120000) // Cada 2 minutos en lugar de 1
+    }, 300000) // Cada 5 minutos para reducir carga
 
     return () => clearInterval(interval)
   }, [])

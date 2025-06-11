@@ -11,9 +11,11 @@ export function getSupabase() {
     supabaseInstance = createBrowserClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,
-        detectSessionInUrl: true,
+        detectSessionInUrl: false, // Evitar detección automática para reducir conflictos
         storage: window.localStorage,
-        storageKey: 'sb-auth-token'
+        storageKey: 'sb-nomina-auth-token', // Clave única para evitar conflictos
+        autoRefreshToken: true,
+        debug: false // Reducir logs en producción
       }
     })
   }

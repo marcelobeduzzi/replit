@@ -7,32 +7,44 @@ export async function GET(request: Request) {
     const cookieStore = await cookies()
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
-    // Verificar autenticación con mejor manejo de errores
-    const {
-      data: { session },
-      error: sessionError
-    } = await supabase.auth.getSession()
-    
-    if (sessionError) {
-      console.error("Error obteniendo sesión en API payroll:", sessionError)
-      return NextResponse.json({ error: "Error de autenticación" }, { status: 401 })
-    }
-    
-    if (!session || !session.user) {
-      console.log("No hay sesión activa en API payroll")
-      // Intentar refrescar la sesión
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+    // Verificar autenticación de manera más robusta
+    let currentSession = null
+    let sessionUser = null
+
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
       
-      if (refreshError || !refreshData.session) {
-        console.error("Error al refrescar sesión:", refreshError)
-        return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+      if (sessionError) {
+        console.error("Error obteniendo sesión en API payroll:", sessionError)
+      } else if (sessionData?.session) {
+        currentSession = sessionData.session
+        sessionUser = sessionData.session.user
+        console.log("Sesión activa encontrada para:", sessionUser.email)
       }
-      
-      console.log("Sesión refrescada exitosamente en API payroll")
+
+      // Si no hay sesión, intentar obtener el usuario directamente
+      if (!currentSession) {
+        const { data: userData, error: userError } = await supabase.auth.getUser()
+        
+        if (!userError && userData?.user) {
+          sessionUser = userData.user
+          console.log("Usuario obtenido directamente:", sessionUser.email)
+          // Crear una sesión mínima para continuar
+          currentSession = { user: sessionUser }
+        }
+      }
+
+    } catch (authError) {
+      console.error("Error en verificación de autenticación:", authError)
     }
-    
-    const currentSession = session || refreshData?.session
-    console.log("Sesión válida en API payroll para usuario:", currentSession?.user?.email)
+
+    // Verificar si tenemos un usuario válido
+    if (!sessionUser) {
+      console.log("No se pudo obtener usuario válido")
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
+    console.log("API Payroll - Usuario autenticado:", sessionUser.email)
 
     // Obtener parámetros de consulta
     const url = new URL(request.url)

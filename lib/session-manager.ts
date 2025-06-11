@@ -20,28 +20,25 @@ class SessionManager {
     if (typeof window !== 'undefined') {
       this.initSession()
       
-      // Configurar listener de eventos de autenticación
+      // Configurar listener de eventos de autenticación con menos logs
       supabase.auth.onAuthStateChange((event, session) => {
-        console.log(`Auth event: ${event}`, session ? 
-          `User: ${session.user?.email}, Expires: ${new Date(session.expires_at! * 1000).toLocaleString()}` : 
-          'No session')
-        
         if (event === 'SIGNED_IN') {
-          console.log('Usuario ha iniciado sesión')
           this.currentSession = session
           this.refreshAttempts = 0
           this.scheduleTokenRefresh(session)
           this.loadUserMetadata(session.user.id)
         } else if (event === 'TOKEN_REFRESHED') {
-          console.log('Session refreshed successfully')
           this.currentSession = session
           this.refreshAttempts = 0
           this.scheduleTokenRefresh(session)
         } else if (event === 'SIGNED_OUT') {
-          console.log('Usuario ha cerrado sesión')
           this.currentSession = null
           this.userMetadata = null
           this.clearRefreshTimeout()
+        }
+        // Solo log para eventos importantes
+        if (event !== 'INITIAL_SESSION') {
+          console.log(`Auth event: ${event}`, session?.user?.email || 'No session')
         }
       })
     }
