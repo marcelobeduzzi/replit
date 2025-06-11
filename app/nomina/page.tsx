@@ -121,12 +121,14 @@ export default function NominaPage() {
       if (payrollResponse.ok) {
         const payrollData = await payrollResponse.json()
         console.log("Nóminas cargadas:", payrollData.length)
+        console.log("Datos de nóminas:", payrollData)
         setPayrolls(payrollData)
       } else {
-        console.error("Error en respuesta de nóminas:", payrollResponse.status)
+        const errorText = await payrollResponse.text()
+        console.error("Error en respuesta de nóminas:", payrollResponse.status, errorText)
         toast({
           title: "Error",
-          description: "Error al cargar las nóminas",
+          description: `Error al cargar las nóminas: ${payrollResponse.status}`,
           variant: "destructive",
         })
       }

@@ -120,7 +120,9 @@ const NavLink = memo(
 NavLink.displayName = "NavLink"
 
 // Componente principal con exportación por defecto
-export default function DashboardLayout({ 
+export default DashboardLayout
+export { DashboardLayout }
+function DashboardLayout({ 
   children, 
   isLoading 
 }: { 

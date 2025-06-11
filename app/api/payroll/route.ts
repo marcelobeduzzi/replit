@@ -4,7 +4,8 @@ import { cookies } from "next/headers"
 
 export async function GET(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
     // Verificar autenticación
     const {
@@ -84,10 +85,15 @@ export async function GET(request: Request) {
         employeeName: `${employee.first_name} ${employee.last_name}`,
         position: employee.position || "Sin posición",
         department: employee.department || "Sin departamento",
-        handSalary: Number(employee.hand_salary || 0), // Salario original del empleado
-        finalHandSalary: finalHandSalary, // Salario calculado final
+        month: payroll.month,
+        year: payroll.year,
+        handSalary: Number(payroll.hand_salary || 0),
+        finalHandSalary: finalHandSalary,
         bankSalary: bankSalary,
-        totalSalary: correctTotalSalary, // USAR EL TOTAL CORREGIDO
+        totalSalary: correctTotalSalary,
+        isPaid: payroll.is_paid || false,
+        isPaidHand: payroll.is_paid_hand || false,
+        isPaidBank: payroll.is_paid_bank || false,
         status: payroll.is_paid ? "Pagado" : "Pendiente",
         createdAt: payroll.created_at,
         updatedAt: payroll.updated_at,
@@ -95,6 +101,9 @@ export async function GET(request: Request) {
         total_salary: correctTotalSalary,
         final_hand_salary: finalHandSalary,
         bank_salary: bankSalary,
+        is_paid: payroll.is_paid || false,
+        is_paid_hand: payroll.is_paid_hand || false,
+        is_paid_bank: payroll.is_paid_bank || false,
       }
     })
 
