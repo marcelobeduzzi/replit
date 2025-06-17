@@ -279,26 +279,46 @@ export default function NominaPage() {
   // Función para confirmar pagos
   const handleConfirmPayment = async (payrollId: string, paymentType: 'hand' | 'bank' | 'total') => {
     try {
+      console.log(`Iniciando confirmación de pago - ID: ${payrollId}, Tipo: ${paymentType}`)
+
+      const requestBody = {
+        payrollId,
+        paymentType
+      }
+
+      console.log("Enviando datos:", requestBody)
+
       const response = await fetch("/api/payroll/confirm-payment", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({
-          payrollId,
-          paymentType
-        }),
+        body: JSON.stringify(requestBody),
       })
 
-      const data = await response.json()
+      console.log("Respuesta del servidor:", response.status, response.statusText)
 
-      if (response.ok && data.success) {
+      if (!response.ok) {
+        const errorData = await response.text()
+        console.error("Error en respuesta del servidor:", errorData)
+        throw new Error(`Error del servidor: ${response.status} - ${errorData}`)
+      }
+
+      const data = await response.json()
+      console.log("Datos de respuesta:", data)
+
+      if (data.success) {
         toast({
           title: "Éxito",
           description: `Pago confirmado correctamente`,
         })
-        await loadPayrolls() // Recargar datos
+        
+        // Recargar datos para reflejar los cambios
+        await loadPayrolls(currentPage)
+        
+        // También recargar estadísticas globales
+        await loadGlobalStats()
       } else {
         throw new Error(data.error || "Error al confirmar pago")
       }
