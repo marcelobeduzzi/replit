@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status")
     const page = parseInt(searchParams.get("page") || "1")
     const limit = parseInt(searchParams.get("limit") || "20")
+    const statsOnly = searchParams.get("stats_only") === "true"
 
     console.log("API Payroll - Parámetros:", { month, year, status, page, limit })
 
@@ -38,11 +39,7 @@ export async function GET(request: NextRequest) {
       }
     )
 
-    // Calcular offset para paginación
-    const from = (page - 1) * limit
-    const to = from + limit - 1
-
-    // Consulta optimizada con paginación
+    // Configurar consulta según si necesitamos estadísticas o paginación
     let query = supabase
       .from("payroll")
       .select(`
@@ -72,7 +69,13 @@ export async function GET(request: NextRequest) {
       `, { count: "exact" })
       .eq("employees.status", "active")
       .order("created_at", { ascending: false })
-      .range(from, to)
+
+    // Solo aplicar paginación si no estamos obteniendo estadísticas globales
+    if (!statsOnly) {
+      const from = (page - 1) * limit
+      const to = from + limit - 1
+      query = query.range(from, to)
+    }
 
     // Aplicar filtros
     if (month && month !== "all") {

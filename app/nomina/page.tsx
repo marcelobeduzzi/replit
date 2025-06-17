@@ -48,6 +48,7 @@ export default function NominaPage() {
   // Estados principales
   const [loading, setLoading] = useState(false)
   const [payrolls, setPayrolls] = useState<Payroll[]>([])
+  const [allPayrollsStats, setAllPayrollsStats] = useState<any>(null) // Para estadísticas globales
   const [loadingPayrolls, setLoadingPayrolls] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -83,6 +84,45 @@ export default function NominaPage() {
       loadPayrolls(1)
     }
   }, [monthFilter, yearFilter, statusFilter])
+
+  // Función para cargar estadísticas globales (sin paginación)
+  const loadGlobalStats = async () => {
+    try {
+      console.log("Cargando estadísticas globales...")
+      
+      const params = new URLSearchParams()
+      if (monthFilter && monthFilter !== 'all') params.append('month', monthFilter)
+      if (yearFilter && yearFilter !== 'all') params.append('year', yearFilter)
+      if (statusFilter !== 'all') params.append('status', statusFilter)
+      params.append('stats_only', 'true') // Parámetro especial para obtener solo estadísticas
+
+      const response = await fetch(`/api/payroll?${params.toString()}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data?.payrolls) {
+          // Calcular estadísticas sobre todos los registros
+          const stats = {
+            total: data.payrolls.length,
+            pending: data.payrolls.filter((p: any) => !p.is_paid).length,
+            paid: data.payrolls.filter((p: any) => p.is_paid).length,
+            totalToPay: data.payrolls.filter((p: any) => !p.is_paid).reduce((sum: number, p: any) => sum + (p.total_salary || 0), 0),
+            totalPaid: data.payrolls.filter((p: any) => p.is_paid).reduce((sum: number, p: any) => sum + (p.total_salary || 0), 0)
+          }
+          setAllPayrollsStats(stats)
+          console.log("Estadísticas globales cargadas:", stats)
+        }
+      }
+    } catch (error) {
+      console.error("Error cargando estadísticas globales:", error)
+    }
+  }
 
   const loadPayrolls = async (page: number = 1) => {
     try {
@@ -128,6 +168,11 @@ export default function NominaPage() {
       if (data?.payrolls) {
         setPayrolls(data.payrolls)
         setTotalRecords(data.totalRecords || 0)
+        
+        // Si es la primera página, también cargar estadísticas globales
+        if (page === 1) {
+          loadGlobalStats()
+        }
       } else {
         console.error("Nóminas - No se encontraron payrolls en la respuesta:", data)
         setPayrolls([])
@@ -295,8 +340,8 @@ export default function NominaPage() {
 
   const filteredPayrolls = getFilteredPayrolls()
 
-  // Calcular estadísticas
-  const stats = {
+  // Calcular estadísticas usando datos globales o locales como fallback
+  const stats = allPayrollsStats || {
     total: payrolls.length,
     pending: payrolls.filter(p => !p.is_paid).length,
     paid: payrolls.filter(p => p.is_paid).length,
@@ -598,7 +643,11 @@ export default function NominaPage() {
                     {filteredPayrolls.map((payroll) => (
                       <div
                         key={payroll.id}
-                        className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                        className="border rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                        onClick={() => {
+                          // Mostrar detalles del payroll
+                          console.log("Ver detalles de:", payroll)
+                        }}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
@@ -617,20 +666,70 @@ export default function NominaPage() {
                               <div className="text-right">
                                 <p className="font-semibold">${(payroll.total_salary || 0).toLocaleString()}</p>
                                 <p className="text-xs text-gray-500">Total</p>
+                                <div className="text-xs mt-1">
+                                  <span className="text-blue-600">Mano: ${(payroll.hand_salary || 0).toLocaleString()}</span>
+                                  {" | "}
+                                  <span className="text-green-600">Banco: ${(payroll.bank_salary || 0).toLocaleString()}</span>
+                                </div>
                               </div>
                             </div>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <Badge variant={payroll.is_paid ? "default" : "secondary"}>
-                              {payroll.is_paid ? "Pagado" : "Pendiente"}
-                            </Badge>
-                            <Button size="sm" variant="outline">
+                            <div className="flex flex-col space-y-1">
+                              {!payroll.is_paid_hand && payroll.hand_salary > 0 && (
+                                <Badge variant="secondary" className="text-xs">Mano Pendiente</Badge>
+                              )}
+                              {!payroll.is_paid_bank && payroll.bank_salary > 0 && (
+                                <Badge variant="secondary" className="text-xs">Banco Pendiente</Badge>
+                              )}
+                              {payroll.is_paid && (
+                                <Badge variant="default" className="text-xs">Pagado Completo</Badge>
+                              )}
+                            </div>
+                            <Button size="sm" variant="outline" onClick={(e) => {
+                              e.stopPropagation()
+                              console.log("Ver detalles específicos")
+                            }}>
                               <Eye className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
                       </div>
                     ))}
+                    
+                    {/* Paginación al final de los resultados */}
+                    {totalRecords > recordsPerPage && (
+                      <Card className="mt-4">
+                        <CardContent className="pt-6">
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm text-gray-600">
+                              Mostrando {((currentPage - 1) * recordsPerPage) + 1} - {Math.min(currentPage * recordsPerPage, totalRecords)} de {totalRecords} registros
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => loadPayrolls(currentPage - 1)}
+                                disabled={!hasPrev || loadingPayrolls}
+                              >
+                                Anterior
+                              </Button>
+                              <span className="text-sm">
+                                Página {currentPage} de {totalPages}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => loadPayrolls(currentPage + 1)}
+                                disabled={!hasNext || loadingPayrolls}
+                              >
+                                Siguiente
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
                   </div>
                 )}
               </TabsContent>
@@ -652,25 +751,89 @@ export default function NominaPage() {
                               <p className="text-sm text-gray-600">
                                 {payroll.employees.position}
                               </p>
+                              <p className="text-xs text-gray-500">
+                                {format(new Date(payroll.year, payroll.month - 1), "MMMM yyyy", { locale: es })}
+                              </p>
                             </div>
                             <div className="text-right">
                               <p className="font-semibold text-orange-700">${(payroll.total_salary || 0).toLocaleString()}</p>
-                              <p className="text-xs text-gray-500">Pendiente de pago</p>
+                              <div className="text-xs text-gray-600 mt-1">
+                                {!payroll.is_paid_hand && payroll.hand_salary > 0 && (
+                                  <div>Mano: ${(payroll.hand_salary || 0).toLocaleString()}</div>
+                                )}
+                                {!payroll.is_paid_bank && payroll.bank_salary > 0 && (
+                                  <div>Banco: ${(payroll.bank_salary || 0).toLocaleString()}</div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
+                          {!payroll.is_paid_hand && payroll.hand_salary > 0 && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleConfirmPayment(payroll.id, 'hand')}
+                              className="text-blue-600 hover:bg-blue-50"
+                            >
+                              Pagar Mano
+                            </Button>
+                          )}
+                          {!payroll.is_paid_bank && payroll.bank_salary > 0 && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleConfirmPayment(payroll.id, 'bank')}
+                              className="text-green-600 hover:bg-green-50"
+                            >
+                              Pagar Banco
+                            </Button>
+                          )}
                           <Button 
                             size="sm" 
                             onClick={() => handleConfirmPayment(payroll.id, 'total')}
                             className="bg-green-600 hover:bg-green-700"
                           >
-                            Confirmar Pago
+                            Pagar Todo
                           </Button>
                         </div>
                       </div>
                     </div>
                   ))}
+                  
+                  {/* Paginación en pendientes */}
+                  {totalRecords > recordsPerPage && (
+                    <Card className="mt-4">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm text-gray-600">
+                            Mostrando {((currentPage - 1) * recordsPerPage) + 1} - {Math.min(currentPage * recordsPerPage, totalRecords)} de {totalRecords} registros
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => loadPayrolls(currentPage - 1)}
+                              disabled={!hasPrev || loadingPayrolls}
+                            >
+                              Anterior
+                            </Button>
+                            <span className="text-sm">
+                              Página {currentPage} de {totalPages}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => loadPayrolls(currentPage + 1)}
+                              disabled={!hasNext || loadingPayrolls}
+                            >
+                              Siguiente
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </TabsContent>
 
@@ -691,22 +854,77 @@ export default function NominaPage() {
                               <p className="text-sm text-gray-600">
                                 {payroll.employees.position}
                               </p>
+                              <p className="text-xs text-gray-500">
+                                {format(new Date(payroll.year, payroll.month - 1), "MMMM yyyy", { locale: es })}
+                              </p>
                             </div>
                             <div className="text-right">
                               <p className="font-semibold text-green-700">${(payroll.total_salary || 0).toLocaleString()}</p>
-                              <p className="text-xs text-gray-500">Pagado</p>
+                              <div className="text-xs text-gray-600 mt-1">
+                                <div className="flex space-x-2">
+                                  {payroll.is_paid_hand && payroll.hand_salary > 0 && (
+                                    <Badge variant="default" className="text-xs bg-blue-600">
+                                      Mano: ${(payroll.hand_salary || 0).toLocaleString()}
+                                    </Badge>
+                                  )}
+                                  {payroll.is_paid_bank && payroll.bank_salary > 0 && (
+                                    <Badge variant="default" className="text-xs bg-green-600">
+                                      Banco: ${(payroll.bank_salary || 0).toLocaleString()}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
                           <Badge variant="default" className="bg-green-600">
                             <CheckCircle className="h-3 w-3 mr-1" />
-                            Pagado
+                            Pagado Completo
                           </Badge>
+                          <Button size="sm" variant="outline" onClick={() => {
+                            console.log("Ver detalles de pago:", payroll)
+                          }}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                     </div>
                   ))}
+                  
+                  {/* Paginación en pagados */}
+                  {totalRecords > recordsPerPage && (
+                    <Card className="mt-4">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm text-gray-600">
+                            Mostrando {((currentPage - 1) * recordsPerPage) + 1} - {Math.min(currentPage * recordsPerPage, totalRecords)} de {totalRecords} registros
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => loadPayrolls(currentPage - 1)}
+                              disabled={!hasPrev || loadingPayrolls}
+                            >
+                              Anterior
+                            </Button>
+                            <span className="text-sm">
+                              Página {currentPage} de {totalPages}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => loadPayrolls(currentPage + 1)}
+                              disabled={!hasNext || loadingPayrolls}
+                            >
+                              Siguiente
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </TabsContent>
 
