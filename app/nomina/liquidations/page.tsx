@@ -123,6 +123,8 @@ export default function LiquidationsPage() {
   const handleGenerateLiquidations = async () => {
     setLoading(true)
     try {
+      console.log("Iniciando generación de liquidaciones automática...")
+      
       const response = await fetch('/api/payroll/liquidation/generate', {
         method: 'POST',
         headers: {
@@ -130,18 +132,25 @@ export default function LiquidationsPage() {
         },
       })
 
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`)
+      }
+
       const result = await response.json()
+      console.log("Resultado de generación:", result)
+      
       setResult(result)
 
       if (result.success) {
-        // Recargar liquidaciones si se generaron nuevas
-        if (result.generated > 0 || result.updated > 0) {
-          await loadLiquidations()
-        }
+        // Recargar liquidaciones siempre después de la generación
+        await loadLiquidations()
       }
     } catch (error) {
-      console.error("Error:", error)
-      setResult({ success: false, error: String(error) })
+      console.error("Error al generar liquidaciones:", error)
+      setResult({ 
+        success: false, 
+        error: `Error al generar liquidaciones: ${String(error)}` 
+      })
     } finally {
       setLoading(false)
     }

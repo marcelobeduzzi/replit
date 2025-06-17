@@ -23,6 +23,7 @@ export async function POST(request: Request) {
       .select("*")
       .eq("status", "inactive")
       .not("termination_date", "is", null)
+      .order("termination_date", { ascending: false })
 
     if (employeesError) {
       console.error("Error al obtener empleados inactivos:", employeesError)
@@ -41,12 +42,14 @@ export async function POST(request: Request) {
       try {
         console.log(`Procesando empleado ${employee.id}: ${employee.first_name} ${employee.last_name}`)
 
-        // Verificar si ya existe una liquidación
+        // Verificar si ya existe una liquidación para este empleado
         const { data: existingLiquidation, error: checkError } = await supabase
           .from("liquidations")
-          .select("id")
+          .select("id, employee_id, is_paid")
           .eq("employee_id", employee.id)
           .maybeSingle()
+        
+        console.log(`Verificando liquidación existente para empleado ${employee.id}:`, existingLiquidation)
 
         if (checkError) {
           console.error(`Error al verificar liquidación para ${employee.first_name} ${employee.last_name}:`, checkError)
@@ -65,14 +68,36 @@ export async function POST(request: Request) {
         }
 
         // 3. Calcular la liquidación
+        if (!employee.hire_date || !employee.termination_date) {
+          console.log(`Empleado ${employee.first_name} ${employee.last_name} no tiene fechas válidas, omitiendo...`)
+          skipped++
+          continue
+        }
+
         const hireDate = new Date(employee.hire_date)
         const terminationDate = new Date(employee.termination_date)
+        
+        // Validar que las fechas sean válidas
+        if (isNaN(hireDate.getTime()) || isNaN(terminationDate.getTime())) {
+          console.log(`Fechas inválidas para empleado ${employee.first_name} ${employee.last_name}, omitiendo...`)
+          skipped++
+          continue
+        }
+
         const diffTime = Math.abs(terminationDate.getTime() - hireDate.getTime())
         const workedDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
         const workedMonths = Math.floor(workedDays / 30)
 
         // Días a pagar en el último mes (hasta la fecha de egreso)
         const daysToPayInLastMonth = terminationDate.getDate()
+        
+        console.log(`Empleado ${employee.first_name} ${employee.last_name}:`, {
+          hireDate: employee.hire_date,
+          terminationDate: employee.termination_date,
+          workedDays,
+          workedMonths,
+          daysToPayInLastMonth
+        })
 
         // Calcular montos
         const baseSalary = Number.parseFloat(employee.salary) || 0
