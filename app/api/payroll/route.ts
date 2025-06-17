@@ -23,12 +23,12 @@ export async function GET(request: NextRequest) {
 
     // Usar la instancia global de Supabase
 
-    // Consulta simplificada para depuración
+    // Consulta optimizada para obtener nóminas con empleados activos
     let query = supabase
       .from("payroll")
       .select(`
         *,
-        employees (
+        employees!inner (
           id,
           first_name,
           last_name,
@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
           status
         )
       `)
+      .eq("employees.status", "active")
       .order("created_at", { ascending: false })
 
     // Aplicar filtros si existen
@@ -92,15 +93,40 @@ export async function GET(request: NextRequest) {
         return null
       }
 
+      // Calcular salarios correctamente
+      const handSalary = Number(payroll.hand_salary || payroll.base_salary || 0)
+      const bankSalary = Number(payroll.bank_salary || 0)
+      const deductions = Number(payroll.deductions || 0)
+      const additions = Number(payroll.additions || 0)
+      const attendanceBonus = Number(payroll.attendance_bonus || 0)
+      const hasAttendanceBonus = Boolean(payroll.has_attendance_bonus)
+
+      // Calcular final_hand_salary si es 0
+      let finalHandSalary = Number(payroll.final_hand_salary || 0)
+      if (finalHandSalary === 0) {
+        finalHandSalary = handSalary - deductions + additions
+      }
+
+      // Calcular total_salary si es 0
+      let totalSalary = Number(payroll.total_salary || 0)
+      if (totalSalary === 0) {
+        totalSalary = finalHandSalary + bankSalary + (hasAttendanceBonus ? attendanceBonus : 0)
+      }
+
       return {
         id: payroll.id,
         employee_id: payroll.employee_id,
         year: payroll.year || new Date().getFullYear(),
         month: payroll.month || new Date().getMonth() + 1,
-        hand_salary: Number(payroll.hand_salary || 0),
-        bank_salary: Number(payroll.bank_salary || 0),
-        final_hand_salary: Number(payroll.final_hand_salary || payroll.hand_salary || 0),
-        total_salary: Number(payroll.total_salary || 0),
+        hand_salary: handSalary,
+        bank_salary: bankSalary,
+        base_salary: Number(payroll.base_salary || 0),
+        deductions: deductions,
+        additions: additions,
+        final_hand_salary: finalHandSalary,
+        total_salary: totalSalary,
+        attendance_bonus: attendanceBonus,
+        has_attendance_bonus: hasAttendanceBonus,
         is_paid: Boolean(payroll.is_paid),
         is_paid_hand: Boolean(payroll.is_paid_hand),
         is_paid_bank: Boolean(payroll.is_paid_bank),
@@ -112,7 +138,7 @@ export async function GET(request: NextRequest) {
           last_name: payroll.employees.last_name || "",
           position: payroll.employees.position || "Sin posición",
           base_salary: Number(payroll.employees.base_salary || 0),
-          status: payroll.employees.status || "unknown"
+          status: payroll.employees.status || "active"
         }
       }
     }).filter(Boolean) // Remover registros nulos
