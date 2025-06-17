@@ -11,54 +11,49 @@ import { Badge } from "@/components/ui/badge"
 import { AlertTriangle, FileText, Calendar, DollarSign, Users, CheckCircle, Clock, AlertCircle } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import Link from "next/link"
-import { supabase } from "@/lib/supabase/client"
+import { createBrowserClient } from '@supabase/ssr'
+
+// Configuración de Supabase
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
 
 // Tipos de datos para payroll
 interface Employee {
   id: string
-  firstName: string
-  lastName: string
+  first_name: string
+  last_name: string
   position: string
-  local: string
-  baseSalary: number
-  hourlyRate: number
+  department: string
+  base_salary: number
+  hand_salary: number
+  bank_salary: number
 }
 
 interface Payroll {
   id: string
-  employeeId: string
-  employee: Employee
+  employee_id: string
+  employees: Employee
   year: number
   month: number
-  period: string
-  regularHours: number
-  overtimeHours: number
-  baseSalary: number
-  overtimePay: number
-  bonuses: number
-  deductions: number
-  grossPay: number
-  netPay: number
-  isPaid: boolean
-  paidAt: string | null
-  paymentMethod: string | null
-  paymentType: string | null
-  createdAt: string
-  liquidation?: {
-    id: string
-    isPaid: boolean
-  }
+  hand_salary: number
+  bank_salary: number
+  final_hand_salary: number
+  total_salary: number
+  is_paid: boolean
+  is_paid_hand: boolean
+  is_paid_bank: boolean
+  created_at: string
+  updated_at: string
 }
 
 export default function NominaPage() {
   const router = useRouter()
 
-  // Estados de autenticación simplificados
+  // Estados principales
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-
-  // Estados principales
   const [payrolls, setPayrolls] = useState<Payroll[]>([])
   const [loadingPayrolls, setLoadingPayrolls] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -68,14 +63,16 @@ export default function NominaPage() {
   const [yearFilter, setYearFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
 
-  // Verificar autenticación usando el mismo patrón que las otras secciones
+  // Verificar autenticación usando Supabase directamente
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        console.log("Verificando autenticación...")
+        
         const { data: { user }, error } = await supabase.auth.getUser()
         
         if (error || !user) {
-          console.log("No hay usuario autenticado, redirigiendo...")
+          console.log("No hay usuario autenticado, redirigiendo a login...")
           router.replace("/login")
           return
         }
@@ -83,6 +80,10 @@ export default function NominaPage() {
         console.log("Usuario autenticado:", user.email)
         setUser(user)
         setLoading(false)
+        
+        // Cargar datos inmediatamente después de autenticar
+        loadPayrolls()
+        
       } catch (error) {
         console.error("Error verificando autenticación:", error)
         router.replace("/login")
@@ -92,36 +93,54 @@ export default function NominaPage() {
     checkAuth()
   }, [router])
 
-  // Cargar datos de nóminas cuando el usuario esté autenticado
-  useEffect(() => {
-    if (user && !loadingPayrolls && payrolls.length === 0) {
-      loadPayrolls()
-    }
-  }, [user, loadingPayrolls, payrolls.length])
-
   const loadPayrolls = async () => {
     try {
       setLoadingPayrolls(true)
       setError(null)
 
-      console.log("Cargando nóminas...")
+      console.log("Cargando datos de payroll desde Supabase...")
 
-      const response = await fetch("/api/payroll", {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
+      // Obtener datos directamente de Supabase
+      let query = supabase
+        .from("payroll")
+        .select(`
+          *,
+          employees!inner(
+            id,
+            first_name,
+            last_name,
+            position,
+            department,
+            hand_salary,
+            bank_salary,
+            base_salary
+          )
+        `)
+        .order("created_at", { ascending: false })
 
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`)
+      // Aplicar filtros si existen
+      if (monthFilter) {
+        query = query.eq("month", parseInt(monthFilter))
+      }
+      if (yearFilter) {
+        query = query.eq("year", parseInt(yearFilter))
+      }
+      if (statusFilter === "paid") {
+        query = query.eq("is_paid", true)
+      } else if (statusFilter === "pending") {
+        query = query.eq("is_paid", false)
       }
 
-      const data = await response.json()
-      console.log("Nóminas cargadas:", data.length)
+      const { data, error } = await query
 
+      if (error) {
+        console.error("Error cargando payrolls:", error)
+        throw new Error(`Error de base de datos: ${error.message}`)
+      }
+
+      console.log(`Payrolls cargados: ${data?.length || 0}`)
       setPayrolls(data || [])
+
     } catch (error: any) {
       console.error("Error cargando nóminas:", error)
       setError(error.message || "Error al cargar las nóminas")
@@ -135,8 +154,8 @@ export default function NominaPage() {
     const monthMatch = !monthFilter || payroll.month.toString() === monthFilter
     const yearMatch = !yearFilter || payroll.year.toString() === yearFilter
     const statusMatch = statusFilter === "all" || 
-      (statusFilter === "paid" && (payroll.isPaid || payroll.liquidation?.isPaid)) ||
-      (statusFilter === "pending" && !payroll.isPaid && !payroll.liquidation?.isPaid)
+      (statusFilter === "paid" && payroll.is_paid) ||
+      (statusFilter === "pending" && !payroll.is_paid)
 
     return monthMatch && yearMatch && statusMatch
   })
@@ -176,11 +195,11 @@ export default function NominaPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Empleados</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Registros</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{payrolls.length}</div>
+              <div className="text-2xl font-bold">{filteredPayrolls.length}</div>
             </CardContent>
           </Card>
 
@@ -191,7 +210,7 @@ export default function NominaPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {filteredPayrolls.filter(p => p.isPaid || p.liquidation?.isPaid).length}
+                {filteredPayrolls.filter(p => p.is_paid).length}
               </div>
             </CardContent>
           </Card>
@@ -203,7 +222,7 @@ export default function NominaPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-600">
-                {filteredPayrolls.filter(p => !p.isPaid && !p.liquidation?.isPaid).length}
+                {filteredPayrolls.filter(p => !p.is_paid).length}
               </div>
             </CardContent>
           </Card>
@@ -215,8 +234,8 @@ export default function NominaPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${filteredPayrolls.filter(p => !p.isPaid && !p.liquidation?.isPaid)
-                  .reduce((sum, p) => sum + p.netPay, 0).toLocaleString()}
+                ${filteredPayrolls.filter(p => !p.is_paid)
+                  .reduce((sum, p) => sum + (p.total_salary || 0), 0).toLocaleString()}
               </div>
             </CardContent>
           </Card>
@@ -300,7 +319,7 @@ export default function NominaPage() {
           <CardHeader>
             <CardTitle>Nóminas ({filteredPayrolls.length})</CardTitle>
             <CardDescription>
-              Lista de nóminas generadas para los empleados
+              Lista de nóminas registradas en el sistema
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -329,26 +348,33 @@ export default function NominaPage() {
                         <div className="flex items-center space-x-4">
                           <div>
                             <h3 className="font-semibold">
-                              {payroll.employee.firstName} {payroll.employee.lastName}
+                              {payroll.employees.first_name} {payroll.employees.last_name}
                             </h3>
                             <p className="text-sm text-gray-600">
-                              {payroll.employee.position} - {payroll.employee.local}
+                              {payroll.employees.position} - {payroll.employees.department}
                             </p>
                           </div>
                           <div className="text-sm text-gray-600">
                             <p>{format(new Date(payroll.year, payroll.month - 1), "MMMM yyyy", { locale: es })}</p>
-                            <p>Período: {payroll.period}</p>
+                            <p>ID: {payroll.id}</p>
                           </div>
                           <div className="text-right">
-                            <p className="font-semibold">${payroll.netPay.toLocaleString()}</p>
-                            <p className="text-xs text-gray-500">Neto a pagar</p>
+                            <p className="font-semibold">${(payroll.total_salary || 0).toLocaleString()}</p>
+                            <p className="text-xs text-gray-500">Total</p>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Badge variant={payroll.isPaid || payroll.liquidation?.isPaid ? "default" : "secondary"}>
-                          {payroll.isPaid || payroll.liquidation?.isPaid ? "Pagado" : "Pendiente"}
+                        <Badge variant={payroll.is_paid ? "default" : "secondary"}>
+                          {payroll.is_paid ? "Pagado" : "Pendiente"}
                         </Badge>
+                      </div>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-500 grid grid-cols-3 gap-4">
+                      <div>Mano: ${(payroll.final_hand_salary || 0).toLocaleString()}</div>
+                      <div>Banco: ${(payroll.bank_salary || 0).toLocaleString()}</div>
+                      <div>
+                        Creado: {format(new Date(payroll.created_at), "dd/MM/yyyy", { locale: es })}
                       </div>
                     </div>
                   </div>

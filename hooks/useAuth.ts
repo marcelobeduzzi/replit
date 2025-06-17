@@ -1,5 +1,11 @@
+
 import { useState, useEffect, useCallback } from 'react'
-import { sessionManager } from '@/lib/session-manager'
+import { createBrowserClient } from '@supabase/ssr'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
 
 interface User {
   id: string
@@ -20,21 +26,30 @@ export function useAuth() {
     try {
       console.log('useAuth - Verificando sesión...')
 
-      const sessionData = await sessionManager.validateSession()
-      console.log('useAuth - Resultado de validación:', sessionData)
+      const { data: { user }, error } = await supabase.auth.getUser()
 
-      if (sessionData.valid && sessionData.user) {
-        console.log('useAuth - Usuario cargado:', sessionData.user.email)
-        setUser(sessionData.user)
-        setSessionStatus('valid')
-
-        // Guardar en sessionStorage
-        sessionStorage.setItem('user', JSON.stringify(sessionData.user))
-      } else {
-        console.log('useAuth - Sesión inválida')
+      if (error || !user) {
+        console.log('useAuth - No hay usuario autenticado')
         setUser(null)
         setSessionStatus('invalid')
         sessionStorage.removeItem('user')
+      } else {
+        console.log('useAuth - Usuario autenticado:', user.email)
+        
+        // Crear objeto de usuario simplificado
+        const userData = {
+          id: user.id,
+          email: user.email || '',
+          name: user.email?.split('@')[0] || '',
+          role: 'admin', // Rol por defecto
+          isActive: true,
+          createdAt: user.created_at || new Date().toISOString(),
+          updatedAt: user.updated_at || new Date().toISOString()
+        }
+        
+        setUser(userData)
+        setSessionStatus('valid')
+        sessionStorage.setItem('user', JSON.stringify(userData))
       }
     } catch (error) {
       console.error('useAuth - Error verificando sesión:', error)
