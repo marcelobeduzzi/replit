@@ -1,0 +1,63 @@
+_app-102631b8cfe58f6b.js:38 MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 commitStart listeners added. Use emitter.setMaxListeners() to increase limit
+    at d (https://cdn.replit.com/_next/static/chunks/4899-6fdbc5fb26973838.js:1:58325)
+    at c.addListener (https://cdn.replit.com/_next/static/chunks/4899-6fdbc5fb26973838.js:1:60859)
+    at h (https://cdn.replit.com/_next/static/chunks/692-0da0acd4048e3516.js:1:45187)
+    at Object.watchTextFile (https://cdn.replit.com/_next/static/chunks/692-0da0acd4048e3516.js:1:50705)
+    at https://cdn.replit.com/_next/static/chunks/307-0085b123943bac38.js:1:2283575
+    at Array.map (<anonymous>)
+    at https://cdn.replit.com/_next/static/chunks/307-0085b123943bac38.js:1:2283550
+    at oO (https://cdn.replit.com/_next/static/chunks/framework-52b085694eec3055.js:1:125395)
+    at uB (https://cdn.replit.com/_next/static/chunks/framework-52b085694eec3055.js:1:154390)
+    at https://cdn.replit.com/_next/static/chunks/framework-52b085694eec3055.js:1:152776
+    at uO (https://cdn.replit.com/_next/static/chunks/framework-52b085694eec3055.js:1:152842)
+    at u_ (https://cdn.replit.com/_next/static/chunks/framework-52b085694eec3055.js:1:137506)
+    at r6 (https://cdn.replit.com/_next/static/chunks/framework-52b085694eec3055.js:1:86196)
+    at https://cdn.replit.com/_next/static/chunks/framework-52b085694eec3055.js:1:134884
+(anonymous) @ _app-102631b8cfe58f6b.js:38
+_app-102631b8cfe58f6b.js:38 MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 promptUserReconnect listeners added. Use emitter.setMaxListeners() to increase limit
+    at d (https://cdn.replit.com/_next/static/chunks/4899-6fdbc5fb26973838.js:1:58325)
+    at c.addListener (https://cdn.replit.com/_next/static/chunks/4899-6fdbc5fb26973838.js:1:60859)
+    at h (https://cdn.replit.com/_next/static/chunks/692-0da0acd4048e3516.js:1:46480)
+    at Object.watchTextFile (https://cdn.replit.com/_next/static/chunks/692-0da0acd4048e3516.js:1:50705)
+    at https://cdn.replit.com/_next/static/chunks/307-0085b123943bac38.js:1:2283575
+    at Array.map (<anonymous>)
+    at https://cdn.replit.com/_next/static/chunks/307-0085b123943bac38.js:1:2283550
+    at oO (https://cdn.replit.com/_next/static/chunks/framework-52b085694eec3055.js:1:125395)
+    at uB (https://cdn.replit.com/_next/static/chunks/framework-52b085694eec3055.js:1:154390)
+    at https://cdn.replit.com/_next/static/chunks/framework-52b085694eec3055.js:1:152776
+    at uO (https://cdn.replit.com/_next/static/chunks/framework-52b085694eec3055.js:1:152842)
+    at u_ (https://cdn.replit.com/_next/static/chunks/framework-52b085694eec3055.js:1:137506)
+    at r6 (https://cdn.replit.com/_next/static/chunks/framework-52b085694eec3055.js:1:86196)
+    at https://cdn.replit.com/_next/static/chunks/framework-52b085694eec3055.js:1:134884
+(anonymous) @ _app-102631b8cfe58f6b.js:38
+logs.browser-intake-us5-datadoghq.com/api/v2/logs?ddsource=browser&ddtags=sdk_version%3A4.46.0%2Capi%3Abeacon%2Cenv%3Aproduction%2Cservice%3Awebsite%2Cversion%3A91687b72&dd-api-key=pub31a5047a3a4692afb84a423db984dc57&dd-evp-origin-version=4.46.0&dd-evp-origin=browser&dd-request-id=7ccd92ec-59af-478e-9239-88724d1ef4aa:1 
+            
+            
+           Failed to load resource: net::ERR_BLOCKED_BY_CLIENT
+o1151714.ingest.sentry.io/api/6318792/envelope/?sentry_key=8aa91189a4274b5a8c9b7b01d46ea360&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.112.0:1 
+            
+            
+           Failed to load resource: net::ERR_BLOCKED_BY_CLIENT
+events.launchdarkly.com/events/bulk/62b35a865152ab14c5942820:1 
+            
+            
+           Failed to load resource: net::ERR_BLOCKED_BY_CLIENT
+events.launchdarkly.com/events/bulk/62b35a865152ab14c5942820:1 
+            
+            
+           Failed to load resource: net::ERR_BLOCKED_BY_CLIENT
+workspace_iframe.html:32 Unrecognized feature: 'ambient-light-sensor'.
+workspace_iframe.html:32 Unrecognized feature: 'battery'.
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-not-rendered'.
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-out-of-viewport'.
+workspace_iframe.html:32 Unrecognized feature: 'layout-animations'.
+workspace_iframe.html:32 Unrecognized feature: 'legacy-image-formats'.
+workspace_iframe.html:32 Unrecognized feature: 'navigation-override'.
+workspace_iframe.html:32 Unrecognized feature: 'oversized-images'.
+workspace_iframe.html:32 Unrecognized feature: 'publickey-credentials'.
+workspace_iframe.html:32 Unrecognized feature: 'speaker-selection'.
+workspace_iframe.html:32 Unrecognized feature: 'unoptimized-images'.
+workspace_iframe.html:32 Unrecognized feature: 'unsized-media'.
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowfullscreen'.
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowpaymentrequest'.
+Console.js:61 Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key
