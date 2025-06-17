@@ -20,6 +20,11 @@ class SessionManager {
     if (typeof window !== 'undefined') {
       this.initSession()
 
+      // Incrementar límite de listeners para evitar warnings
+      if (supabase.auth.setMaxListeners) {
+        supabase.auth.setMaxListeners(20)
+      }
+
       // Configurar listener de eventos de autenticación con menos logs
       supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_IN') {

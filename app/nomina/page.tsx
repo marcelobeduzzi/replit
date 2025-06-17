@@ -88,10 +88,10 @@ export default function NominaPage() {
       return
     }
 
-    // Solo redirigir si estamos seguros de que no hay sesión válida
-    if (sessionStatus === "invalid") {
+    // Solo redirigir si estamos seguros de que no hay sesión válida Y no estamos ya en proceso de redirección
+    if (sessionStatus === "invalid" && !window.location.pathname.includes('/login')) {
       console.log("Redirigiendo a login desde nóminas")
-      router.push("/login")
+      router.replace("/login") // Usar replace en lugar de push para evitar loops
       return
     }
 
@@ -99,14 +99,24 @@ export default function NominaPage() {
     if (sessionStatus === "valid" && user) {
       console.log("Sesión válida en nóminas - esperando selección de filtros")
     }
-  }, [sessionStatus, user?.id])
+  }, [sessionStatus, user?.id, router])
 
   // Solo cargar datos cuando se seleccionen filtros específicos
   useEffect(() => {
+    let isMounted = true
+    
     // Solo cargar si hay sesión válida, usuario, y se han seleccionado mes y año específicos
     if (sessionStatus === "valid" && user && monthFilter && yearFilter && monthFilter !== "all" && yearFilter !== "all") {
       console.log("Filtros específicos seleccionados, cargando datos:", { monthFilter, yearFilter, statusFilter })
-      loadData()
+      
+      // Verificar que el componente sigue montado antes de cargar
+      if (isMounted) {
+        loadData()
+      }
+    }
+
+    return () => {
+      isMounted = false
     }
   }, [monthFilter, yearFilter, statusFilter, sessionStatus])
 
@@ -114,6 +124,11 @@ export default function NominaPage() {
     // Prevenir múltiples llamadas simultáneas
     if (isLoading) {
       console.log("Ya hay una carga en progreso, saltando...")
+      return
+    }
+
+    // Verificar que el componente sigue montado
+    if (typeof window === 'undefined') {
       return
     }
 
@@ -189,48 +204,23 @@ export default function NominaPage() {
         console.error("Response headers:", Object.fromEntries(payrollResponse.headers.entries()))
 
         if (payrollResponse.status === 401) {
-          console.log("🔄 Error de autenticación detectado - Intentando refrescar sesión...")
-
-          // Verificar estado de la sesión local primero
-          const currentUser = await sessionManager.getUser()
-          console.log("Usuario local antes del refresco:", currentUser ? currentUser.email : null)
-
-          // Intentar refrescar la sesión antes de mostrar error
-          try {
-            const refreshResponse = await fetch('/api/auth/validate-session', {
-              method: 'POST',
-              headers: {
-                'Cache-Control': 'no-cache',
-                'Content-Type': 'application/json'
-              }
-            })
-
-            console.log("Respuesta del refresco:", refreshResponse.status)
-
-            if (refreshResponse.ok) {
-              const refreshData = await refreshResponse.json()
-              console.log("✅ Sesión refrescada:", refreshData.message)
-              console.log("Reintentando carga de nóminas...")
-              // Reintentar la carga después de un breve delay
-              setTimeout(() => loadData(), 1000)
-              return
-            } else {
-              const refreshError = await refreshResponse.text()
-              console.error("❌ Error al refrescar:", refreshResponse.status, refreshError)
-            }
-          } catch (refreshError) {
-            console.error("❌ Excepción al refrescar sesión:", refreshError)
-          }
-
+          console.log("🔄 Error de autenticación detectado")
+          
           toast({
-            title: "Error de Autenticación",
-            description: "No se pudo verificar tu sesión. Por favor, actualiza la página.",
+            title: "Error de Autenticación", 
+            description: "Tu sesión ha expirado. Por favor, actualiza la página e inicia sesión nuevamente.",
             variant: "destructive",
-            duration: 8000
+            duration: 5000
           })
 
           setPayrolls([])
           setLiquidations([])
+          
+          // Redirigir a login solo una vez y con replace
+          setTimeout(() => {
+            router.replace("/login")
+          }, 2000)
+          
           return
         } else {
           toast({
