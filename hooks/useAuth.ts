@@ -1,130 +1,105 @@
-
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { sessionManager } from '@/lib/session-manager'
-import { User } from '@supabase/supabase-js'
+
+interface User {
+  id: string
+  email: string
+  name: string
+  role: string
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const initializationRef = useRef(false)
+  const [sessionStatus, setSessionStatus] = useState<'loading' | 'valid' | 'invalid'>('loading')
+  const [isInitialized, setIsInitialized] = useState(false)
 
-  // Calcular sessionStatus basado en el estado actual
-  const sessionStatus = isLoading ? "loading" : (user ? "valid" : "invalid")
+  const checkSession = useCallback(async (retryCount = 0) => {
+    try {
+      console.log('useAuth - Verificando sesión...', { retryCount, isInitialized })
+
+      const sessionData = await sessionManager.validateSession()
+      console.log('useAuth - Resultado de validación:', sessionData)
+
+      if (sessionData.valid && sessionData.user) {
+        console.log('useAuth - Usuario cargado:', sessionData.user.email)
+        setUser(sessionData.user)
+        setSessionStatus('valid')
+      } else {
+        console.log('useAuth - Sesión inválida, pero verificando si hay datos locales')
+
+        // Verificar si hay datos de usuario en sessionStorage como respaldo
+        try {
+          const localUser = sessionStorage.getItem('user')
+          if (localUser && !isInitialized) {
+            const userData = JSON.parse(localUser)
+            console.log('useAuth - Recuperando usuario desde localStorage:', userData.email)
+            setUser(userData)
+            setSessionStatus('valid')
+            return
+          }
+        } catch (e) {
+          console.log('useAuth - No hay datos locales válidos')
+        }
+
+        setUser(null)
+        setSessionStatus('invalid')
+      }
+    } catch (error) {
+      console.error('useAuth - Error verificando sesión:', error)
+
+      // Retry logic - máximo 2 reintentos solo en la carga inicial
+      if (retryCount < 2 && !isInitialized) {
+        console.log(`useAuth - Reintentando verificación de sesión (${retryCount + 1}/2)`)
+        setTimeout(() => checkSession(retryCount + 1), 1000)
+        return
+      }
+
+      // En caso de error persistente, verificar localStorage
+      try {
+        const localUser = sessionStorage.getItem('user')
+        if (localUser) {
+          const userData = JSON.parse(localUser)
+          console.log('useAuth - Usando datos locales por error de red:', userData.email)
+          setUser(userData)
+          setSessionStatus('valid')
+          return
+        }
+      } catch (e) {
+        console.log('useAuth - No se pudo recuperar datos locales')
+      }
+
+      setUser(null)
+      setSessionStatus('invalid')
+    } finally {
+      if (!isInitialized) {
+        setIsInitialized(true)
+      }
+    }
+  }, [isInitialized])
 
   useEffect(() => {
-    // Prevenir múltiples inicializaciones
-    if (initializationRef.current) return
-    initializationRef.current = true
-
-    const loadUser = async () => {
-      try {
-        setIsLoading(true)
-        const currentUser = await sessionManager.getUser()
-        console.log("useAuth - Usuario cargado:", currentUser ? currentUser.email : "null")
-        setUser(currentUser)
-        setError(null)
-      } catch (err: any) {
-        console.error('Error al cargar usuario:', err)
-        setError(err.message)
-        setUser(null)
-      } finally {
-        setIsLoading(false)
-      }
+    if (!isInitialized) {
+      console.log('useAuth - Hook inicializado, verificando sesión')
+      checkSession()
     }
+  }, [checkSession, isInitialized])
 
-    loadUser()
-
-    // Verificación muy reducida para evitar loops
-    const interval = setInterval(async () => {
-      try {
-        const currentUser = await sessionManager.getUser()
-        // Solo actualizar si hay un cambio real
-        if (currentUser?.id !== user?.id) {
-          setUser(currentUser)
-        }
-      } catch (err) {
-        console.error('Error al verificar usuario:', err)
-        if (user !== null) {
-          setUser(null)
-        }
-      }
-    }, 60000) // Reducir a cada minuto
-
-    return () => {
-      clearInterval(interval)
+  // Guardar usuario en sessionStorage cuando cambie
+  useEffect(() => {
+    if (user && sessionStatus === 'valid') {
+      sessionStorage.setItem('user', JSON.stringify(user))
+    } else if (sessionStatus === 'invalid') {
+      sessionStorage.removeItem('user')
     }
-  }, []) // Remover user de las dependencias para evitar loops
-
-  const login = async (email: string, password: string) => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const result = await sessionManager.login(email, password)
-
-      if (!result.success) {
-        setError(result.error || 'Error al iniciar sesión')
-        return { success: false, error: result.error }
-      }
-
-      setUser(result.user || null)
-      return { success: true, data: { user: result.user } }
-    } catch (err: any) {
-      console.error('Error en login:', err)
-      setError(err.message)
-      return { success: false, error: err.message }
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const logout = async () => {
-    setIsLoading(true)
-
-    try {
-      const result = await sessionManager.logout()
-
-      if (result.success) {
-        setUser(null)
-        setError(null)
-      } else {
-        setError(result.error || 'Error al cerrar sesión')
-      }
-
-      return result
-    } catch (err: any) {
-      console.error('Error en logout:', err)
-      setError(err.message)
-      return { success: false, error: err.message }
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const refreshSession = async () => {
-    try {
-      const result = await sessionManager.refreshSession()
-      if (result.success) {
-        const currentUser = await sessionManager.getUser()
-        setUser(currentUser)
-      }
-      return result.success
-    } catch (err: any) {
-      console.error('Error en refreshSession:', err)
-      setError(err.message)
-      return false
-    }
-  }
+  }, [user, sessionStatus])
 
   return {
     user,
-    isLoading,
     sessionStatus,
-    isAuthenticated: !!user,
-    error,
-    login,
-    logout,
-    refreshSession
+    checkSession,
+    isInitialized
   }
 }

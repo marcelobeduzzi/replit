@@ -46,7 +46,7 @@ interface Liquidation {
 }
 
 export default function NominaPage() {
-  const { user, sessionStatus } = useAuth()
+  const { user, sessionStatus, isInitialized } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
 
@@ -83,10 +83,14 @@ export default function NominaPage() {
   useEffect(() => {
     console.log("Nóminas - sessionStatus:", sessionStatus, "user:", user ? user.email : null)
 
-    // Solo redirigir si definitivamente no hay usuario después de la carga
-    if (sessionStatus === "invalid") {
-      console.log("Redirigiendo a login desde nóminas")
-      router.replace("/login")
+    // Solo redirigir si definitivamente no hay usuario después de la carga inicial completa
+    if (sessionStatus === "invalid" && isInitialized) {
+      console.log("Redirigiendo a login desde nóminas - sesión definitivamente inválida")
+      
+      // Delay pequeño para evitar redirects prematuros
+      setTimeout(() => {
+        router.replace("/login")
+      }, 100)
       return
     }
 
@@ -94,7 +98,7 @@ export default function NominaPage() {
     if (sessionStatus === "valid" && user) {
       console.log("Sesión válida en nóminas - esperando selección de filtros")
     }
-  }, [sessionStatus, user?.id, router])
+  }, [sessionStatus, user?.id, router, isInitialized])
 
   // Cargar datos cuando se seleccionen filtros específicos
   useEffect(() => {
@@ -424,7 +428,7 @@ export default function NominaPage() {
     return statusMatch
   })
 
-  if (sessionStatus === "loading") {
+  if (sessionStatus === "loading" || !isInitialized) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-screen">
@@ -437,7 +441,7 @@ export default function NominaPage() {
     )
   }
 
-  if (sessionStatus === "invalid") {
+  if (sessionStatus === "invalid" && isInitialized) {
     return (
       <DashboardLayout>
         <Card className="border-red-200 bg-red-50">

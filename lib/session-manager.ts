@@ -12,10 +12,17 @@ class SessionManager {
   private userMetadata: any = null
   private maxListeners = 5
 
+  private refreshTimer: NodeJS.Timeout | null = null
+  private isRefreshing = false
+  private lastValidationTime = 0
+  private validationCache: { valid: boolean; user?: any; timestamp: number } | null = null
+  private readonly CACHE_DURATION = 30000 // 30 segundos de cache
+
   private constructor() {
     // Inicializar solo en el cliente
     if (typeof window !== 'undefined') {
       this.initSession()
+      this.setupRefreshInterval()
     }
   }
 
@@ -121,6 +128,144 @@ class SessionManager {
       return { success: false, session: null, error: error.message }
     }
   }
+
+  private setupRefreshInterval() {
+    console.log('Configurando el refresco de sesión')
+
+    // Refrescar cada 10 minutos (reducido para evitar conflictos)
+    const REFRESH_INTERVAL = 10 * 60 * 1000
+
+    console.log('Programando primer refresco en 600 segundos')
+    this.refreshTimer = setInterval(async () => {
+      try {
+        await this.refreshSession()
+      } catch (error) {
+        console.error('Error en refresco automático de sesión:', error)
+      }
+    }, REFRESH_INTERVAL)
+  }
+
+  async validateSession(): Promise<{ valid: boolean; user?: any; error?: string }> {
+    try {
+      // Usar cache si está disponible y es reciente
+      const now = Date.now()
+      if (this.validationCache && (now - this.validationCache.timestamp) < this.CACHE_DURATION) {
+        console.log('SessionManager - Usando cache de validación')
+        return {
+          valid: this.validationCache.valid,
+          user: this.validationCache.user
+        }
+      }
+
+      const response = await fetch('/api/auth/validate-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+        },
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        console.error('SessionManager - Error validando sesión:', response.status, response.statusText)
+
+        // Actualizar cache con resultado inválido
+        this.validationCache = {
+          valid: false,
+          timestamp: now
+        }
+
+        return { valid: false, error: `HTTP ${response.status}` }
+      }
+
+      const data = await response.json()
+      console.log('SessionManager - Respuesta de validación:', data.valid ? 'válida' : 'inválida')
+
+      // Actualizar cache
+      this.validationCache = {
+        valid: data.valid,
+        user: data.user,
+        timestamp: now
+      }
+
+      if (data.valid && data.user) {
+        this.lastValidationTime = now
+        return { valid: true, user: data.user }
+      } else {
+        return { valid: false, error: data.error || 'Sesión inválida' }
+      }
+    } catch (error) {
+      console.error('SessionManager - Error en validateSession:', error)
+
+      // En caso de error de red, si tenemos cache válido reciente, usarlo
+      if (this.validationCache && this.validationCache.valid && (Date.now() - this.validationCache.timestamp) < 60000) {
+        console.log('SessionManager - Usando cache válido por error de red')
+        return {
+          valid: this.validationCache.valid,
+          user: this.validationCache.user
+        }
+      }
+
+      return { valid: false, error: 'Error de conexión' }
+    }
+  }
+
+  async refreshSession(): Promise<{ success: boolean; error?: string }> {
+    if (this.isRefreshing) {
+      console.log('Ya hay un refresh en progreso, saltando...')
+      return { success: false, error: 'Refresh ya en progreso' }
+    }
+
+    try {
+      this.isRefreshing = true
+      console.log('Intentando refrescar sesión...')
+
+      const response = await fetch('/api/auth/validate-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        console.error('Error refrescando sesión:', response.status)
+        return { success: false, error: `HTTP ${response.status}` }
+      }
+
+      const data = await response.json()
+
+      if (data.valid) {
+        console.log('Session refreshed')
+
+        // Limpiar cache para forzar nueva validación
+        this.validationCache = null
+
+        return { success: true }
+      } else {
+        console.log('No hay sesión disponible para refrescar')
+        return { success: false, error: 'No hay sesión válida' }
+      }
+    } catch (error) {
+      console.error('Error refrescando sesión:', error)
+      return { success: false, error: 'Error de conexión' }
+    } finally {
+      this.isRefreshing = false
+    }
+  }
+
+  clearCache() {
+    this.validationCache = null
+  }
+
+  cleanup() {
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer)
+      this.refreshTimer = null
+    }
+    this.clearCache()
+  }
+
 
   public async refreshSession(): Promise<{ success: boolean, error?: string }> {
     try {
