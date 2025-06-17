@@ -63,42 +63,54 @@ export default function NominaPage() {
   const [yearFilter, setYearFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
 
-  // Verificar autenticación usando Supabase directamente
+  // Verificar autenticación UNA SOLA VEZ al montar el componente
   useEffect(() => {
-    const checkAuth = async () => {
+    let isMounted = true
+
+    const checkAuthAndLoad = async () => {
       try {
-        console.log("Verificando autenticación...")
+        console.log("Nóminas - Verificando autenticación...")
         
         const { data: { user }, error } = await supabase.auth.getUser()
         
+        if (!isMounted) return
+
         if (error || !user) {
-          console.log("No hay usuario autenticado, redirigiendo a login...")
+          console.log("Nóminas - No hay usuario autenticado, redirigiendo...")
           router.replace("/login")
           return
         }
 
-        console.log("Usuario autenticado:", user.email)
+        console.log("Nóminas - Usuario autenticado:", user.email)
         setUser(user)
         setLoading(false)
         
         // Cargar datos inmediatamente después de autenticar
-        loadPayrolls()
+        if (isMounted) {
+          loadPayrolls()
+        }
         
       } catch (error) {
-        console.error("Error verificando autenticación:", error)
-        router.replace("/login")
+        console.error("Nóminas - Error verificando autenticación:", error)
+        if (isMounted) {
+          router.replace("/login")
+        }
       }
     }
 
-    checkAuth()
-  }, [router])
+    checkAuthAndLoad()
+
+    return () => {
+      isMounted = false
+    }
+  }, []) // Sin dependencias adicionales para evitar bucles
 
   const loadPayrolls = async () => {
     try {
       setLoadingPayrolls(true)
       setError(null)
 
-      console.log("Cargando datos de payroll desde Supabase...")
+      console.log("Nóminas - Cargando datos de payroll...")
 
       // Obtener datos directamente de Supabase
       let query = supabase
@@ -134,15 +146,15 @@ export default function NominaPage() {
       const { data, error } = await query
 
       if (error) {
-        console.error("Error cargando payrolls:", error)
+        console.error("Nóminas - Error cargando payrolls:", error)
         throw new Error(`Error de base de datos: ${error.message}`)
       }
 
-      console.log(`Payrolls cargados: ${data?.length || 0}`)
+      console.log(`Nóminas - Payrolls cargados: ${data?.length || 0}`)
       setPayrolls(data || [])
 
     } catch (error: any) {
-      console.error("Error cargando nóminas:", error)
+      console.error("Nóminas - Error cargando nóminas:", error)
       setError(error.message || "Error al cargar las nóminas")
     } finally {
       setLoadingPayrolls(false)
@@ -167,7 +179,7 @@ export default function NominaPage() {
         <div className="flex items-center justify-center h-screen">
           <div className="text-center">
             <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-            <p className="mt-4">Verificando autenticación...</p>
+            <p className="mt-4">Verificando acceso...</p>
           </div>
         </div>
       </DashboardLayout>

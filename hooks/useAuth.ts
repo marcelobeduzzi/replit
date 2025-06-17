@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -22,26 +22,56 @@ export function useAuth() {
   const [sessionStatus, setSessionStatus] = useState<'loading' | 'valid' | 'invalid'>('loading')
   const [isInitialized, setIsInitialized] = useState(false)
 
-  const checkSession = useCallback(async () => {
-    try {
-      console.log('useAuth - Verificando sesión...')
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser()
 
+        if (error || !user) {
+          setUser(null)
+          setSessionStatus('invalid')
+        } else {
+          const userData = {
+            id: user.id,
+            email: user.email || '',
+            name: user.email?.split('@')[0] || '',
+            role: 'admin',
+            isActive: true,
+            createdAt: user.created_at || new Date().toISOString(),
+            updatedAt: user.updated_at || new Date().toISOString()
+          }
+          
+          setUser(userData)
+          setSessionStatus('valid')
+        }
+      } catch (error) {
+        console.error('Error verificando sesión:', error)
+        setUser(null)
+        setSessionStatus('invalid')
+      } finally {
+        setIsInitialized(true)
+      }
+    }
+
+    if (!isInitialized) {
+      checkSession()
+    }
+  }, [isInitialized])
+
+  const checkSession = async () => {
+    setSessionStatus('loading')
+    try {
       const { data: { user }, error } = await supabase.auth.getUser()
 
       if (error || !user) {
-        console.log('useAuth - No hay usuario autenticado')
         setUser(null)
         setSessionStatus('invalid')
-        sessionStorage.removeItem('user')
       } else {
-        console.log('useAuth - Usuario autenticado:', user.email)
-        
-        // Crear objeto de usuario simplificado
         const userData = {
           id: user.id,
           email: user.email || '',
           name: user.email?.split('@')[0] || '',
-          role: 'admin', // Rol por defecto
+          role: 'admin',
           isActive: true,
           createdAt: user.created_at || new Date().toISOString(),
           updatedAt: user.updated_at || new Date().toISOString()
@@ -49,24 +79,13 @@ export function useAuth() {
         
         setUser(userData)
         setSessionStatus('valid')
-        sessionStorage.setItem('user', JSON.stringify(userData))
       }
     } catch (error) {
-      console.error('useAuth - Error verificando sesión:', error)
+      console.error('Error verificando sesión:', error)
       setUser(null)
       setSessionStatus('invalid')
-      sessionStorage.removeItem('user')
-    } finally {
-      setIsInitialized(true)
     }
-  }, [])
-
-  useEffect(() => {
-    if (!isInitialized) {
-      console.log('useAuth - Hook inicializado, verificando sesión')
-      checkSession()
-    }
-  }, [checkSession, isInitialized])
+  }
 
   return {
     user,

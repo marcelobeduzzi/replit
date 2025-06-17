@@ -18,16 +18,11 @@ interface User {
 class SessionManager {
   async validateSession(): Promise<{ valid: boolean; user?: User; error?: string }> {
     try {
-      console.log('SessionManager - Validando sesión...')
-
       const { data: { user }, error } = await supabase.auth.getUser()
 
       if (error || !user) {
-        console.log('SessionManager - Sesión inválida')
         return { valid: false, error: error?.message || 'No session' }
       }
-
-      console.log('SessionManager - Sesión válida para:', user.email)
 
       const userData: User = {
         id: user.id,
@@ -41,40 +36,18 @@ class SessionManager {
 
       return { valid: true, user: userData }
     } catch (error: any) {
-      console.error('SessionManager - Error validando sesión:', error)
       return { valid: false, error: error.message }
-    }
-  }
-
-  async refreshSession(): Promise<boolean> {
-    try {
-      console.log('SessionManager - Refrescando sesión...')
-
-      const { data, error } = await supabase.auth.refreshSession()
-
-      if (error || !data.session) {
-        console.log('SessionManager - No se pudo refrescar la sesión')
-        return false
-      }
-
-      console.log('SessionManager - Sesión refrescada exitosamente')
-      return true
-    } catch (error) {
-      console.error('SessionManager - Error refrescando sesión:', error)
-      return false
     }
   }
 
   public async login(email: string, password: string): Promise<{ success: boolean, user?: User, error?: string }> {
     try {
-      console.log(`Intentando iniciar sesión con: ${email}`)
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       })
 
       if (error) {
-        console.error('Error durante el login:', error)
         return { success: false, error: error.message }
       }
 
@@ -88,11 +61,8 @@ class SessionManager {
         updatedAt: data.user!.updated_at!
       }
 
-      console.log('Login exitoso:', data.user?.email)
-
       return { success: true, user: user }
     } catch (error: any) {
-      console.error('Excepción durante el login:', error)
       return { success: false, error: error.message }
     }
   }
@@ -102,31 +72,14 @@ class SessionManager {
       const { error } = await supabase.auth.signOut()
 
       if (error) {
-        console.error('Error durante el logout:', error)
         return { success: false, error: error.message }
       }
 
-      console.log('Logout exitoso')
       return { success: true }
     } catch (error: any) {
-      console.error('Error durante el logout:', error)
       return { success: false, error: error.message }
-    }
-  }
-
-  public isAuthenticated(): boolean {
-    try {
-      const session = supabase.auth.getSession()
-      return !!session;
-    } catch (error) {
-      console.error("Error checking authentication:", error)
-      return false;
     }
   }
 }
 
 export const sessionManager = new SessionManager()
-
-export function useSessionManager() {
-  return sessionManager
-}
