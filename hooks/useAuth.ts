@@ -16,9 +16,9 @@ export function useAuth() {
   const [sessionStatus, setSessionStatus] = useState<'loading' | 'valid' | 'invalid'>('loading')
   const [isInitialized, setIsInitialized] = useState(false)
 
-  const checkSession = useCallback(async (retryCount = 0) => {
+  const checkSession = useCallback(async () => {
     try {
-      console.log('useAuth - Verificando sesión...', { retryCount, isInitialized })
+      console.log('useAuth - Verificando sesión...')
 
       const sessionData = await sessionManager.validateSession()
       console.log('useAuth - Resultado de validación:', sessionData)
@@ -27,58 +27,24 @@ export function useAuth() {
         console.log('useAuth - Usuario cargado:', sessionData.user.email)
         setUser(sessionData.user)
         setSessionStatus('valid')
+
+        // Guardar en sessionStorage
+        sessionStorage.setItem('user', JSON.stringify(sessionData.user))
       } else {
-        console.log('useAuth - Sesión inválida, pero verificando si hay datos locales')
-
-        // Verificar si hay datos de usuario en sessionStorage como respaldo
-        try {
-          const localUser = sessionStorage.getItem('user')
-          if (localUser && !isInitialized) {
-            const userData = JSON.parse(localUser)
-            console.log('useAuth - Recuperando usuario desde localStorage:', userData.email)
-            setUser(userData)
-            setSessionStatus('valid')
-            return
-          }
-        } catch (e) {
-          console.log('useAuth - No hay datos locales válidos')
-        }
-
+        console.log('useAuth - Sesión inválida')
         setUser(null)
         setSessionStatus('invalid')
+        sessionStorage.removeItem('user')
       }
     } catch (error) {
       console.error('useAuth - Error verificando sesión:', error)
-
-      // Retry logic - máximo 2 reintentos solo en la carga inicial
-      if (retryCount < 2 && !isInitialized) {
-        console.log(`useAuth - Reintentando verificación de sesión (${retryCount + 1}/2)`)
-        setTimeout(() => checkSession(retryCount + 1), 1000)
-        return
-      }
-
-      // En caso de error persistente, verificar localStorage
-      try {
-        const localUser = sessionStorage.getItem('user')
-        if (localUser) {
-          const userData = JSON.parse(localUser)
-          console.log('useAuth - Usando datos locales por error de red:', userData.email)
-          setUser(userData)
-          setSessionStatus('valid')
-          return
-        }
-      } catch (e) {
-        console.log('useAuth - No se pudo recuperar datos locales')
-      }
-
       setUser(null)
       setSessionStatus('invalid')
+      sessionStorage.removeItem('user')
     } finally {
-      if (!isInitialized) {
-        setIsInitialized(true)
-      }
+      setIsInitialized(true)
     }
-  }, [isInitialized])
+  }, [])
 
   useEffect(() => {
     if (!isInitialized) {
@@ -86,15 +52,6 @@ export function useAuth() {
       checkSession()
     }
   }, [checkSession, isInitialized])
-
-  // Guardar usuario en sessionStorage cuando cambie
-  useEffect(() => {
-    if (user && sessionStatus === 'valid') {
-      sessionStorage.setItem('user', JSON.stringify(user))
-    } else if (sessionStatus === 'invalid') {
-      sessionStorage.removeItem('user')
-    }
-  }, [user, sessionStatus])
 
   return {
     user,

@@ -1,3 +1,4 @@
+
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
@@ -9,7 +10,7 @@ export async function POST(request: Request) {
     const cookieStore = await cookies()
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
-    // Verificar sesión actual
+    // Verificar usuario actual
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     console.log("Session validation result:")
@@ -19,32 +20,32 @@ export async function POST(request: Request) {
     if (userError || !user) {
       console.log("❌ No valid session found")
       return NextResponse.json({ 
-        success: false, 
+        valid: false, 
         error: "No valid session" 
       }, { status: 401 })
     }
 
-    // Intentar refrescar la sesión
-    const { data: { session }, error: refreshError } = await supabase.auth.refreshSession()
-
-    if (refreshError) {
-      console.log("❌ Session refresh failed:", refreshError)
-      return NextResponse.json({ 
-        success: false, 
-        error: "Session refresh failed" 
-      }, { status: 401 })
+    // Construir datos de usuario
+    const userData = {
+      id: user.id,
+      email: user.email || '',
+      name: user.email?.split('@')[0] || 'Usuario',
+      role: 'admin',
+      isActive: true,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at || user.created_at
     }
 
-    console.log("✅ Session validated and refreshed successfully")
+    console.log("✅ Session validated successfully")
     return NextResponse.json({ 
-      success: true, 
-      message: "Session refreshed successfully" 
+      valid: true,
+      user: userData
     })
 
   } catch (error: any) {
     console.error("❌ Error validating session:", error)
     return NextResponse.json({ 
-      success: false, 
+      valid: false, 
       error: error.message 
     }, { status: 500 })
   }
