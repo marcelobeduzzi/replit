@@ -50,8 +50,8 @@ export default function NominaPage() {
   const [error, setError] = useState<string | null>(null)
 
   // Filtros
-  const [monthFilter, setMonthFilter] = useState("")
-  const [yearFilter, setYearFilter] = useState("")
+  const [monthFilter, setMonthFilter] = useState("all")
+  const [yearFilter, setYearFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
 
   // Cargar datos inmediatamente sin verificación de autenticación
@@ -68,8 +68,8 @@ export default function NominaPage() {
 
       // Usar la API endpoint en lugar de Supabase directo
       const params = new URLSearchParams()
-      if (monthFilter) params.append('month', monthFilter)
-      if (yearFilter) params.append('year', yearFilter)
+      if (monthFilter && monthFilter !== 'all') params.append('month', monthFilter)
+      if (yearFilter && yearFilter !== 'all') params.append('year', yearFilter)
       if (statusFilter !== 'all') params.append('status', statusFilter)
 
       const response = await fetch(`/api/payroll?${params.toString()}`)
@@ -93,8 +93,8 @@ export default function NominaPage() {
 
   // Filtrar nóminas
   const filteredPayrolls = payrolls.filter((payroll) => {
-    const monthMatch = !monthFilter || payroll.month.toString() === monthFilter
-    const yearMatch = !yearFilter || payroll.year.toString() === yearFilter
+    const monthMatch = monthFilter === "all" || !monthFilter || payroll.month.toString() === monthFilter
+    const yearMatch = yearFilter === "all" || !yearFilter || payroll.year.toString() === yearFilter
     const statusMatch = statusFilter === "all" || 
       (statusFilter === "paid" && payroll.is_paid) ||
       (statusFilter === "pending" && !payroll.is_paid)
@@ -178,7 +178,7 @@ export default function NominaPage() {
                     <SelectValue placeholder="Todos los meses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos los meses</SelectItem>
+                    <SelectItem value="all">Todos los meses</SelectItem>
                     {Array.from({ length: 12 }, (_, i) => (
                       <SelectItem key={i + 1} value={(i + 1).toString()}>
                         {format(new Date(2024, i, 1), "MMMM", { locale: es })}
@@ -195,7 +195,7 @@ export default function NominaPage() {
                     <SelectValue placeholder="Todos los años" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos los años</SelectItem>
+                    <SelectItem value="all">Todos los años</SelectItem>
                     <SelectItem value="2024">2024</SelectItem>
                     <SelectItem value="2025">2025</SelectItem>
                   </SelectContent>
