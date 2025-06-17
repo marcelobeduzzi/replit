@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/client"
+import { supabase } from "@/lib/supabase/client"
 
 function getMonthName(month: number): string {
   const months = [
@@ -21,33 +21,20 @@ export async function GET(request: NextRequest) {
 
     console.log("API Payroll - Parámetros recibidos:", { month, year, status })
 
-    const supabase = createClient()
+    // Usar la instancia global de Supabase
 
-    // Crear la consulta base corrigiendo la estructura
+    // Consulta simplificada para depuración
     let query = supabase
       .from("payroll")
       .select(`
-        id,
-        employee_id,
-        year,
-        month,
-        hand_salary,
-        bank_salary,
-        final_hand_salary,
-        total_salary,
-        is_paid,
-        is_paid_hand,
-        is_paid_bank,
-        created_at,
-        updated_at,
-        employees!inner (
+        *,
+        employees (
           id,
           first_name,
           last_name,
           position,
           base_salary,
-          hand_salary,
-          bank_salary
+          status
         )
       `)
       .order("created_at", { ascending: false })
@@ -97,31 +84,38 @@ export async function GET(request: NextRequest) {
       console.log("Muestra de datos encontrados:", payrolls[0])
     }
 
-    // Formatear los datos para el frontend
-    const formattedPayrolls = payrolls.map((payroll: any) => ({
-      id: payroll.id,
-      employee_id: payroll.employee_id,
-      year: payroll.year,
-      month: payroll.month,
-      hand_salary: payroll.hand_salary,
-      bank_salary: payroll.bank_salary,
-      final_hand_salary: payroll.final_hand_salary,
-      total_salary: payroll.total_salary,
-      is_paid: payroll.is_paid,
-      is_paid_hand: payroll.is_paid_hand,
-      is_paid_bank: payroll.is_paid_bank,
-      created_at: payroll.created_at,
-      updated_at: payroll.updated_at,
-      employees: {
-        id: payroll.employees.id,
-        first_name: payroll.employees.first_name,
-        last_name: payroll.employees.last_name,
-        position: payroll.employees.position,
-        base_salary: payroll.employees.base_salary,
-        hand_salary: payroll.employees.hand_salary,
-        bank_salary: payroll.employees.bank_salary
+    // Formatear los datos para el frontend con validación
+    const formattedPayrolls = payrolls.map((payroll: any) => {
+      // Validar que el empleado existe
+      if (!payroll.employees) {
+        console.warn(`Nómina ${payroll.id} sin datos de empleado`)
+        return null
       }
-    }))
+
+      return {
+        id: payroll.id,
+        employee_id: payroll.employee_id,
+        year: payroll.year || new Date().getFullYear(),
+        month: payroll.month || new Date().getMonth() + 1,
+        hand_salary: Number(payroll.hand_salary || 0),
+        bank_salary: Number(payroll.bank_salary || 0),
+        final_hand_salary: Number(payroll.final_hand_salary || payroll.hand_salary || 0),
+        total_salary: Number(payroll.total_salary || 0),
+        is_paid: Boolean(payroll.is_paid),
+        is_paid_hand: Boolean(payroll.is_paid_hand),
+        is_paid_bank: Boolean(payroll.is_paid_bank),
+        created_at: payroll.created_at,
+        updated_at: payroll.updated_at,
+        employees: {
+          id: payroll.employees.id,
+          first_name: payroll.employees.first_name || "Sin nombre",
+          last_name: payroll.employees.last_name || "",
+          position: payroll.employees.position || "Sin posición",
+          base_salary: Number(payroll.employees.base_salary || 0),
+          status: payroll.employees.status || "unknown"
+        }
+      }
+    }).filter(Boolean) // Remover registros nulos
 
     console.log("=== FIN API PAYROLL DEBUG ===")
     return NextResponse.json(formattedPayrolls)
