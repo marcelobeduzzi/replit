@@ -1,9 +1,9 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/app/dashboard-layout"
-import { useAuth } from "@/hooks/useAuth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -12,6 +12,7 @@ import { AlertTriangle, FileText, Calendar, DollarSign, Users, CheckCircle, Cloc
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import Link from "next/link"
+import { supabase } from "@/lib/supabase/client"
 
 // Tipos de datos para payroll
 interface Employee {
@@ -52,46 +53,55 @@ interface Payroll {
 
 export default function NominaPage() {
   const router = useRouter()
-  const { user, sessionStatus, isInitialized } = useAuth()
+
+  // Estados de autenticación simplificados
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
   // Estados principales
   const [payrolls, setPayrolls] = useState<Payroll[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loadingPayrolls, setLoadingPayrolls] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // Estados para confirmación de pagos
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
-  const [selectedPayroll, setSelectedPayroll] = useState<Payroll | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState("")
-  const [paymentType, setPaymentType] = useState("")
-  const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
 
   // Filtros
   const [monthFilter, setMonthFilter] = useState("")
   const [yearFilter, setYearFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
 
-  // Lógica de autenticación simplificada
+  // Verificar autenticación usando el mismo patrón que las otras secciones
   useEffect(() => {
-    console.log("Nóminas - sessionStatus:", sessionStatus, "user:", user ? user.email : null)
+    const checkAuth = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser()
+        
+        if (error || !user) {
+          console.log("No hay usuario autenticado, redirigiendo...")
+          router.replace("/login")
+          return
+        }
 
-    if (sessionStatus === "invalid" && isInitialized) {
-      console.log("Redirigiendo a login desde nóminas - sesión inválida")
-      router.replace("/login")
-      return
+        console.log("Usuario autenticado:", user.email)
+        setUser(user)
+        setLoading(false)
+      } catch (error) {
+        console.error("Error verificando autenticación:", error)
+        router.replace("/login")
+      }
     }
-  }, [sessionStatus, isInitialized, router])
+
+    checkAuth()
+  }, [router])
 
   // Cargar datos de nóminas cuando el usuario esté autenticado
   useEffect(() => {
-    if (sessionStatus === "valid" && user && !loading && !payrolls.length) {
+    if (user && !loadingPayrolls && payrolls.length === 0) {
       loadPayrolls()
     }
-  }, [sessionStatus, user, loading, payrolls.length])
+  }, [user, loadingPayrolls, payrolls.length])
 
   const loadPayrolls = async () => {
     try {
-      setLoading(true)
+      setLoadingPayrolls(true)
       setError(null)
 
       console.log("Cargando nóminas...")
@@ -116,7 +126,7 @@ export default function NominaPage() {
       console.error("Error cargando nóminas:", error)
       setError(error.message || "Error al cargar las nóminas")
     } finally {
-      setLoading(false)
+      setLoadingPayrolls(false)
     }
   }
 
@@ -131,7 +141,8 @@ export default function NominaPage() {
     return monthMatch && yearMatch && statusMatch
   })
 
-  if (sessionStatus === "loading" || !isInitialized) {
+  // Mostrar loading mientras se verifica autenticación
+  if (loading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-screen">
@@ -144,25 +155,9 @@ export default function NominaPage() {
     )
   }
 
-  if (sessionStatus === "invalid" && isInitialized) {
-    return (
-      <DashboardLayout>
-        <Card className="border-red-200 bg-red-50">
-          <CardHeader>
-            <CardTitle className="text-red-700 flex items-center">
-              <AlertTriangle className="mr-2 h-5 w-5" />
-              Sesión Expirada
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-red-700">Tu sesión ha expirado. Por favor inicia sesión nuevamente.</p>
-            <Button asChild className="mt-4">
-              <Link href="/login">Iniciar Sesión</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </DashboardLayout>
-    )
+  // Si no hay usuario, el useEffect ya manejó la redirección
+  if (!user) {
+    return null
   }
 
   return (
@@ -280,8 +275,8 @@ export default function NominaPage() {
               </div>
 
               <div className="flex items-end">
-                <Button onClick={loadPayrolls} disabled={loading}>
-                  {loading ? "Cargando..." : "Actualizar"}
+                <Button onClick={loadPayrolls} disabled={loadingPayrolls}>
+                  {loadingPayrolls ? "Cargando..." : "Actualizar"}
                 </Button>
               </div>
             </div>
@@ -309,7 +304,7 @@ export default function NominaPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {loadingPayrolls ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
                 <p className="mt-2">Cargando nóminas...</p>
@@ -318,6 +313,9 @@ export default function NominaPage() {
               <div className="text-center py-8">
                 <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500">No hay nóminas para mostrar</p>
+                <Button onClick={loadPayrolls} className="mt-4">
+                  Cargar Nóminas
+                </Button>
               </div>
             ) : (
               <div className="space-y-4">
