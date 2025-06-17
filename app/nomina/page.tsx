@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle, FileText, Calendar, DollarSign, Users, CheckCircle, Clock, AlertCircle, Plus, RefreshCw } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { AlertTriangle, FileText, Calendar, DollarSign, Users, CheckCircle, Clock, AlertCircle, Plus, RefreshCw, Eye, Edit, Download } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { useToast } from "@/components/ui/use-toast"
@@ -19,7 +20,6 @@ interface Employee {
   first_name: string
   last_name: string
   position: string
-  department: string
   base_salary: number
   hand_salary: number
   bank_salary: number
@@ -62,6 +62,9 @@ export default function NominaPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [generatingPayroll, setGeneratingPayroll] = useState(false)
 
+  // Estado para tab activa
+  const [activeTab, setActiveTab] = useState("overview")
+
   // Cargar datos al iniciar
   useEffect(() => {
     loadPayrolls()
@@ -74,13 +77,18 @@ export default function NominaPage() {
 
       console.log("Nóminas - Cargando datos de payroll...")
 
-      // Usar la API endpoint directa sin filtros inicialmente
-      const response = await fetch("/api/payroll", {
+      // Construir parámetros de filtro
+      const params = new URLSearchParams()
+      if (monthFilter && monthFilter !== 'all') params.append('month', monthFilter)
+      if (yearFilter && yearFilter !== 'all') params.append('year', yearFilter)
+      if (statusFilter !== 'all') params.append('status', statusFilter)
+
+      const response = await fetch(`/api/payroll?${params.toString()}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include", // Importante para las cookies de sesión
+        credentials: "include",
       })
 
       if (!response.ok) {
@@ -192,16 +200,78 @@ export default function NominaPage() {
     router.push("/nomina/liquidations/create")
   }
 
-  // Filtrar nóminas
-  const filteredPayrolls = payrolls.filter((payroll) => {
-    const monthMatch = monthFilter === "all" || payroll.month.toString() === monthFilter
-    const yearMatch = yearFilter === "all" || payroll.year.toString() === yearFilter
-    const statusMatch = statusFilter === "all" || 
-      (statusFilter === "paid" && payroll.is_paid) ||
-      (statusFilter === "pending" && !payroll.is_paid)
+  // Función para confirmar pagos
+  const handleConfirmPayment = async (payrollId: string, paymentType: 'hand' | 'bank' | 'total') => {
+    try {
+      const response = await fetch("/api/payroll/confirm-payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          payrollId,
+          paymentType
+        }),
+      })
 
-    return monthMatch && yearMatch && statusMatch
-  })
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        toast({
+          title: "Éxito",
+          description: `Pago confirmado correctamente`,
+        })
+        await loadPayrolls() // Recargar datos
+      } else {
+        throw new Error(data.error || "Error al confirmar pago")
+      }
+    } catch (error: any) {
+      console.error("Error confirmando pago:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Error al confirmar pago",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Filtrar nóminas según la pestaña activa
+  const getFilteredPayrolls = () => {
+    let filtered = payrolls.filter((payroll) => {
+      const monthMatch = monthFilter === "all" || payroll.month.toString() === monthFilter
+      const yearMatch = yearFilter === "all" || payroll.year.toString() === yearFilter
+      const statusMatch = statusFilter === "all" || 
+        (statusFilter === "paid" && payroll.is_paid) ||
+        (statusFilter === "pending" && !payroll.is_paid)
+
+      return monthMatch && yearMatch && statusMatch
+    })
+
+    // Filtrar según la pestaña activa
+    switch (activeTab) {
+      case "pending":
+        return filtered.filter(p => !p.is_paid)
+      case "paid":
+        return filtered.filter(p => p.is_paid)
+      case "analysis":
+        return filtered // Para análisis mostramos todos
+      case "overview":
+      default:
+        return filtered
+    }
+  }
+
+  const filteredPayrolls = getFilteredPayrolls()
+
+  // Calcular estadísticas
+  const stats = {
+    total: payrolls.length,
+    pending: payrolls.filter(p => !p.is_paid).length,
+    paid: payrolls.filter(p => p.is_paid).length,
+    totalToPay: payrolls.filter(p => !p.is_paid).reduce((sum, p) => sum + (p.total_salary || 0), 0),
+    totalPaid: payrolls.filter(p => p.is_paid).reduce((sum, p) => sum + (p.total_salary || 0), 0)
+  }
 
   return (
     <DashboardLayout>
@@ -298,14 +368,14 @@ export default function NominaPage() {
         </Card>
 
         {/* Panel de resumen */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Registros</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{filteredPayrolls.length}</div>
+              <div className="text-2xl font-bold">{stats.total}</div>
             </CardContent>
           </Card>
 
@@ -315,9 +385,7 @@ export default function NominaPage() {
               <CheckCircle className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {filteredPayrolls.filter(p => p.is_paid).length}
-              </div>
+              <div className="text-2xl font-bold text-green-600">{stats.paid}</div>
             </CardContent>
           </Card>
 
@@ -327,21 +395,30 @@ export default function NominaPage() {
               <Clock className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
-                {filteredPayrolls.filter(p => !p.is_paid).length}
-              </div>
+              <div className="text-2xl font-bold text-orange-600">{stats.pending}</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total a Pagar</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <DollarSign className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                ${filteredPayrolls.filter(p => !p.is_paid)
-                  .reduce((sum, p) => sum + (p.total_salary || 0), 0).toLocaleString()}
+              <div className="text-2xl font-bold text-red-600">
+                ${stats.totalToPay.toLocaleString()}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Pagado</CardTitle>
+              <DollarSign className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                ${stats.totalPaid.toLocaleString()}
               </div>
             </CardContent>
           </Card>
@@ -428,78 +505,213 @@ export default function NominaPage() {
           </Card>
         )}
 
-        {/* Lista de nóminas */}
+        {/* Tabs de nóminas */}
         <Card>
           <CardHeader>
-            <CardTitle>Nóminas ({filteredPayrolls.length})</CardTitle>
+            <CardTitle>Nóminas</CardTitle>
             <CardDescription>
-              Lista de nóminas registradas en el sistema
+              Gestiona los pagos por categoría
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {loadingPayrolls ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-                <p className="mt-2">Cargando nóminas...</p>
-              </div>
-            ) : filteredPayrolls.length === 0 ? (
-              <div className="text-center py-8">
-                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No hay nóminas para mostrar</p>
-                <div className="mt-4 space-y-2">
-                  <Button onClick={loadPayrolls}>
-                    Cargar Nóminas
-                  </Button>
-                  <p className="text-sm text-gray-400">
-                    O genera nuevas nóminas usando los botones de arriba
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredPayrolls.map((payroll) => (
-                  <div
-                    key={payroll.id}
-                    className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-4">
-                          <div>
-                            <h3 className="font-semibold">
-                              {payroll.employees.first_name} {payroll.employees.last_name}
-                            </h3>
-                            <p className="text-sm text-gray-600">
-                              {payroll.employees.position} - {payroll.employees.department}
-                            </p>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="overview">Resumen</TabsTrigger>
+                <TabsTrigger value="pending">Pendientes ({stats.pending})</TabsTrigger>
+                <TabsTrigger value="paid">Pagados ({stats.paid})</TabsTrigger>
+                <TabsTrigger value="analysis">Análisis</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview" className="space-y-4">
+                {loadingPayrolls ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                    <p className="mt-2">Cargando nóminas...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredPayrolls.map((payroll) => (
+                      <div
+                        key={payroll.id}
+                        className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-4">
+                              <div>
+                                <h3 className="font-semibold">
+                                  {payroll.employees.first_name} {payroll.employees.last_name}
+                                </h3>
+                                <p className="text-sm text-gray-600">
+                                  {payroll.employees.position}
+                                </p>
+                              </div>
+                              <div className="text-sm text-gray-600">
+                                <p>{format(new Date(payroll.year, payroll.month - 1), "MMMM yyyy", { locale: es })}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-semibold">${(payroll.total_salary || 0).toLocaleString()}</p>
+                                <p className="text-xs text-gray-500">Total</p>
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-600">
-                            <p>{format(new Date(payroll.year, payroll.month - 1), "MMMM yyyy", { locale: es })}</p>
-                            <p>ID: {payroll.id}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-semibold">${(payroll.total_salary || 0).toLocaleString()}</p>
-                            <p className="text-xs text-gray-500">Total</p>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant={payroll.is_paid ? "default" : "secondary"}>
+                              {payroll.is_paid ? "Pagado" : "Pendiente"}
+                            </Badge>
+                            <Button size="sm" variant="outline">
+                              <Eye className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant={payroll.is_paid ? "default" : "secondary"}>
-                          {payroll.is_paid ? "Pagado" : "Pendiente"}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="mt-2 text-xs text-gray-500 grid grid-cols-3 gap-4">
-                      <div>Mano: ${(payroll.final_hand_salary || 0).toLocaleString()}</div>
-                      <div>Banco: ${(payroll.bank_salary || 0).toLocaleString()}</div>
-                      <div>
-                        Creado: {format(new Date(payroll.created_at), "dd/MM/yyyy", { locale: es })}
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
+                )}
+              </TabsContent>
+
+              <TabsContent value="pending" className="space-y-4">
+                <div className="space-y-4">
+                  {filteredPayrolls.map((payroll) => (
+                    <div
+                      key={payroll.id}
+                      className="border rounded-lg p-4 bg-orange-50 border-orange-200"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-4">
+                            <div>
+                              <h3 className="font-semibold">
+                                {payroll.employees.first_name} {payroll.employees.last_name}
+                              </h3>
+                              <p className="text-sm text-gray-600">
+                                {payroll.employees.position}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold text-orange-700">${(payroll.total_salary || 0).toLocaleString()}</p>
+                              <p className="text-xs text-gray-500">Pendiente de pago</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleConfirmPayment(payroll.id, 'total')}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            Confirmar Pago
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="paid" className="space-y-4">
+                <div className="space-y-4">
+                  {filteredPayrolls.map((payroll) => (
+                    <div
+                      key={payroll.id}
+                      className="border rounded-lg p-4 bg-green-50 border-green-200"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-4">
+                            <div>
+                              <h3 className="font-semibold">
+                                {payroll.employees.first_name} {payroll.employees.last_name}
+                              </h3>
+                              <p className="text-sm text-gray-600">
+                                {payroll.employees.position}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold text-green-700">${(payroll.total_salary || 0).toLocaleString()}</p>
+                              <p className="text-xs text-gray-500">Pagado</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="default" className="bg-green-600">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Pagado
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="analysis" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Análisis por Mes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span>Enero:</span>
+                          <span>${payrolls.filter(p => p.month === 1).reduce((sum, p) => sum + p.total_salary, 0).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Febrero:</span>
+                          <span>${payrolls.filter(p => p.month === 2).reduce((sum, p) => sum + p.total_salary, 0).toLocaleString()}</span>
+                        </div>
+                        {/* Agregar más meses según sea necesario */}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Por Estado</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span>Pagados:</span>
+                          <span className="text-green-600">{stats.paid}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Pendientes:</span>
+                          <span className="text-orange-600">{stats.pending}</span>
+                        </div>
+                        <div className="flex justify-between font-semibold">
+                          <span>Total:</span>
+                          <span>{stats.total}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Montos</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span>Total Pagado:</span>
+                          <span className="text-green-600">${stats.totalPaid.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Total Pendiente:</span>
+                          <span className="text-orange-600">${stats.totalToPay.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between font-semibold">
+                          <span>Total General:</span>
+                          <span>${(stats.totalPaid + stats.totalToPay).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>

@@ -1,123 +1,86 @@
-import { NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/client"
 
-export async function GET(request: Request) {
+function getMonthName(month: number): string {
+  const months = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  ]
+  return months[month - 1] || "Mes inválido"
+}
+
+export async function GET(request: NextRequest) {
+  console.log("=== INICIO API PAYROLL DEBUG ===")
+  console.log("Request URL:", request.url)
+
   try {
-    console.log("=== INICIO API PAYROLL DEBUG ===")
-    console.log("Request URL:", request.url)
+    const { searchParams } = new URL(request.url)
+    const month = searchParams.get("month")
+    const year = searchParams.get("year")
+    const status = searchParams.get("status")
 
-    // Obtener cookies y verificar que existan
-    const cookieStore = await cookies()
-    const allCookies = cookieStore.getAll()
-    console.log("Cookies disponibles:", allCookies.length)
-    console.log("Cookies de auth encontradas:", allCookies.filter(c => 
-      c.name.includes('supabase') || c.name.includes('auth') || c.name.includes('session')
-    ).map(c => ({ name: c.name, hasValue: !!c.value })))
+    console.log("API Payroll - Parámetros recibidos:", { month, year, status })
 
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const supabase = createClient()
 
-    // Intentar múltiples métodos de verificación
-    console.log("🔍 Verificando autenticación...")
-
-    // Método 1: getUser()
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    console.log("getUser() result:", { 
-      hasUser: !!user, 
-      userEmail: user?.email,
-      errorType: userError?.name,
-      errorMessage: userError?.message 
-    })
-
-    // Método 2: getSession()
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-    console.log("getSession() result:", { 
-      hasSession: !!session, 
-      sessionUser: session?.user?.email,
-      errorType: sessionError?.name 
-    })
-
-    // Simplificar la verificación de autenticación - permitir acceso básico
-    const validUser = user || session?.user
-    
-    if (validUser) {
-      console.log("✅ Usuario autenticado:", validUser.email)
-    } else {
-      console.log("⚠️ Acceso sin autenticación - permitiendo para funcionamiento básico")
-      // En lugar de bloquear, permitir acceso pero con limitaciones
-    }
-
-    
-
-    // Obtener parámetros de consulta
-    const url = new URL(request.url)
-    const month = url.searchParams.get("month")
-    const year = url.searchParams.get("year")
-
-    console.log(`API Payroll - Parámetros recibidos: month=${month}, year=${year}`)
-
+    // Crear la consulta base corrigiendo la estructura
     let query = supabase
       .from("payroll")
       .select(`
-        *,
-        employees!inner(
+        id,
+        employee_id,
+        year,
+        month,
+        hand_salary,
+        bank_salary,
+        final_hand_salary,
+        total_salary,
+        is_paid,
+        is_paid_hand,
+        is_paid_bank,
+        created_at,
+        updated_at,
+        employees!inner (
           id,
           first_name,
           last_name,
           position,
-          department,
+          base_salary,
           hand_salary,
-          bank_salary,
-          base_salary
+          bank_salary
         )
       `)
       .order("created_at", { ascending: false })
 
-    // Filtrar por mes y año si se proporcionan
-    if (month && year) {
-      const monthNum = parseInt(month)
-      const yearNum = parseInt(year)
-      query = query.eq("month", monthNum).eq("year", yearNum)
-      console.log(`Aplicando filtros: month=${monthNum}, year=${yearNum}`)
-    } else if (month) {
-      const monthNum = parseInt(month)
-      query = query.eq("month", monthNum)
-      console.log(`Filtrando solo por mes: ${monthNum}`)
-    } else if (year) {
-      const yearNum = parseInt(year)
-      query = query.eq("year", yearNum)
-      console.log(`Filtrando solo por año: ${yearNum}`)
-    } else {
-      console.log("Sin filtros aplicados - obteniendo todas las nóminas")
+    // Aplicar filtros si existen
+    if (month && month !== "all") {
+      query = query.eq("month", parseInt(month))
+      console.log(`Filtrando por mes: ${getMonthName(parseInt(month))}`)
     }
 
-    // Verificar primero si hay datos en la tabla
-    console.log("🔍 Verificando acceso a tabla payroll...")
-    const { data: countData, error: countError, count } = await supabase
+    if (year && year !== "all") {
+      query = query.eq("year", parseInt(year))
+      console.log(`Filtrando por año: ${year}`)
+    }
+
+    if (status && status !== "all") {
+      if (status === "paid") {
+        query = query.eq("is_paid", true)
+      } else if (status === "pending") {
+        query = query.eq("is_paid", false)
+      }
+      console.log(`Filtrando por estado: ${status}`)
+    }
+
+    // Verificar acceso a datos
+    const { data: testData, error: testError, count } = await supabase
       .from("payroll")
       .select("id", { count: "exact", head: true })
 
-    if (countError) {
-      console.error("❌ Error al verificar tabla payroll:", countError)
-      console.error("Error completo:", JSON.stringify(countError, null, 2))
+    if (testError) {
+      console.error("❌ Error de acceso a tabla:", testError)
     } else {
       console.log(`✅ Acceso a tabla confirmado. Total registros: ${count || 0}`)
-    }
-
-    // Verificar también si hay datos para el período específico
-    if (month && year) {
-      console.log(`🔍 Verificando datos para ${getMonthName(parseInt(month))} ${year}...`)
-      const { data: periodData, error: periodError, count: periodCount } = await supabase
-        .from("payroll")
-        .select("id", { count: "exact", head: true })
-        .eq("month", parseInt(month))
-        .eq("year", parseInt(year))
-
-      if (periodError) {
-        console.error("❌ Error al verificar período:", periodError)
-      } else {
-        console.log(`📊 Registros para ${getMonthName(parseInt(month))} ${year}: ${periodCount || 0}`)
-      }
     }
 
     console.log("Ejecutando consulta de nóminas...")
@@ -125,76 +88,49 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("Error al obtener nóminas:", error)
-      console.error("Detalles del error:", JSON.stringify(error, null, 2))
-      return NextResponse.json({ error: "Error al obtener nóminas" }, { status: 500 })
+      return NextResponse.json({ error: "Error al obtener nóminas", details: error.message }, { status: 500 })
     }
 
-    console.log(`Nóminas encontradas con filtros aplicados: ${payrolls?.length || 0}`)
+    console.log(`Nóminas encontradas: ${payrolls?.length || 0}`)
 
     if (payrolls && payrolls.length > 0) {
       console.log("Muestra de datos encontrados:", payrolls[0])
     }
 
     // Formatear los datos para el frontend
-    const formattedPayrolls = payrolls.map((payroll: any) => {
-      const employee = payroll.employees
-
-      // VERIFICAR Y CORREGIR EL TOTAL SI ES NECESARIO
-      const finalHandSalary = Number(payroll.final_hand_salary || payroll.hand_salary || 0)
-      const bankSalary = Number(payroll.bank_salary || 0)
-      const storedTotalSalary = Number(payroll.total_salary || 0)
-      const calculatedTotalSalary = finalHandSalary + bankSalary
-
-      // Si el total guardado no coincide con el calculado, usar el calculado
-      const correctTotalSalary =
-        Math.abs(storedTotalSalary - calculatedTotalSalary) > 1 ? calculatedTotalSalary : storedTotalSalary
-
-      if (Math.abs(storedTotalSalary - calculatedTotalSalary) > 1) {
-        console.warn(`API PAYROLLS: Corrigiendo total para empleado ${employee.first_name} ${employee.last_name}`)
-        console.warn(`- Total guardado: ${storedTotalSalary}`)
-        console.warn(`- Total calculado: ${calculatedTotalSalary}`)
+    const formattedPayrolls = payrolls.map((payroll: any) => ({
+      id: payroll.id,
+      employee_id: payroll.employee_id,
+      year: payroll.year,
+      month: payroll.month,
+      hand_salary: payroll.hand_salary,
+      bank_salary: payroll.bank_salary,
+      final_hand_salary: payroll.final_hand_salary,
+      total_salary: payroll.total_salary,
+      is_paid: payroll.is_paid,
+      is_paid_hand: payroll.is_paid_hand,
+      is_paid_bank: payroll.is_paid_bank,
+      created_at: payroll.created_at,
+      updated_at: payroll.updated_at,
+      employees: {
+        id: payroll.employees.id,
+        first_name: payroll.employees.first_name,
+        last_name: payroll.employees.last_name,
+        position: payroll.employees.position,
+        base_salary: payroll.employees.base_salary,
+        hand_salary: payroll.employees.hand_salary,
+        bank_salary: payroll.employees.bank_salary
       }
+    }))
 
-      return {
-        id: payroll.id,
-        employeeId: payroll.employee_id,
-        employeeName: `${employee.first_name} ${employee.last_name}`,
-        position: employee.position || "Sin posición",
-        department: employee.department || "Sin departamento",
-        month: payroll.month,
-        year: payroll.year,
-        handSalary: Number(payroll.hand_salary || 0),
-        finalHandSalary: finalHandSalary,
-        bankSalary: bankSalary,
-        totalSalary: correctTotalSalary,
-        isPaid: payroll.is_paid || false,
-        isPaidHand: payroll.is_paid_hand || false,
-        isPaidBank: payroll.is_paid_bank || false,
-        status: payroll.is_paid ? "Pagado" : "Pendiente",
-        createdAt: payroll.created_at,
-        updatedAt: payroll.updated_at,
-        // Campos adicionales para compatibilidad
-        total_salary: correctTotalSalary,
-        final_hand_salary: finalHandSalary,
-        bank_salary: bankSalary,
-        is_paid: payroll.is_paid || false,
-        is_paid_hand: payroll.is_paid_hand || false,
-        is_paid_bank: payroll.is_paid_bank || false,
-      }
-    })
-
+    console.log("=== FIN API PAYROLL DEBUG ===")
     return NextResponse.json(formattedPayrolls)
-  } catch (error: any) {
-    console.error("Error en GET payrolls:", error)
-    return NextResponse.json({ error: error.message || "Error interno del servidor" }, { status: 500 })
-  }
-}
 
-// Función auxiliar para nombres de meses
-function getMonthName(month: number) {
-  const months = [
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-  ]
-  return months[month - 1] || "Mes desconocido"
+  } catch (error: any) {
+    console.error("Error general en API Payroll:", error)
+    return NextResponse.json({ 
+      error: "Error interno del servidor", 
+      details: error.message 
+    }, { status: 500 })
+  }
 }
