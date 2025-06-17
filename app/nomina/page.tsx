@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -17,8 +18,6 @@ import { AlertTriangle, Calendar, DollarSign, Users, FileText, Calculator, Setti
 import DashboardLayout from "@/app/dashboard-layout"
 import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/components/ui/use-toast"
-import { supabase } from "@/lib/supabase/client"
-import { sessionManager } from "@/lib/session-manager"
 
 interface Payroll {
   id: string
@@ -53,9 +52,9 @@ export default function NominaPage() {
 
   const [payrolls, setPayrolls] = useState<Payroll[]>([])
   const [liquidations, setLiquidations] = useState<Liquidation[]>([])
-  const [isLoading, setIsLoading] = useState(false) // Cambiar a false inicialmente
+  const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("pendientes")
-  const [hasSearched, setHasSearched] = useState(false) // Nuevo estado para controlar si se ha hecho búsqueda
+  const [hasSearched, setHasSearched] = useState(false)
 
   // Estados para generación de nóminas
   const [generatePeriod, setGeneratePeriod] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`)
@@ -75,64 +74,42 @@ export default function NominaPage() {
   const [paymentType, setPaymentType] = useState("")
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
 
-  // Filtros - inicializar con valores específicos para requerir selección
-  const [monthFilter, setMonthFilter] = useState("") // Vacío inicialmente
-  const [yearFilter, setYearFilter] = useState("") // Vacío inicialmente  
+  // Filtros
+  const [monthFilter, setMonthFilter] = useState("")
+  const [yearFilter, setYearFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
 
+  // Simplificar lógica de autenticación
   useEffect(() => {
     console.log("Nóminas - sessionStatus:", sessionStatus, "user:", user ? user.email : null)
 
-    // Esperar a que termine la carga antes de tomar decisiones
-    if (sessionStatus === "loading") {
-      return
-    }
-
-    // Solo redirigir si estamos seguros de que no hay sesión válida Y no estamos ya en proceso de redirección
-    if (sessionStatus === "invalid" && !window.location.pathname.includes('/login')) {
+    // Solo redirigir si definitivamente no hay usuario después de la carga
+    if (sessionStatus === "invalid") {
       console.log("Redirigiendo a login desde nóminas")
-      router.replace("/login") // Usar replace en lugar de push para evitar loops
+      router.replace("/login")
       return
     }
 
-    // NO cargar datos automáticamente - solo verificar sesión
+    // Log de estado válido
     if (sessionStatus === "valid" && user) {
       console.log("Sesión válida en nóminas - esperando selección de filtros")
     }
   }, [sessionStatus, user?.id, router])
 
-  // Solo cargar datos cuando se seleccionen filtros específicos
+  // Cargar datos cuando se seleccionen filtros específicos
   useEffect(() => {
-    let isMounted = true
-    
-    // Solo cargar si hay sesión válida, usuario, y se han seleccionado mes y año específicos
     if (sessionStatus === "valid" && user && monthFilter && yearFilter && monthFilter !== "all" && yearFilter !== "all") {
       console.log("Filtros específicos seleccionados, cargando datos:", { monthFilter, yearFilter, statusFilter })
-      
-      // Verificar que el componente sigue montado antes de cargar
-      if (isMounted) {
-        loadData()
-      }
+      loadData()
     }
-
-    return () => {
-      isMounted = false
-    }
-  }, [monthFilter, yearFilter, statusFilter, sessionStatus])
+  }, [monthFilter, yearFilter, statusFilter, sessionStatus, user])
 
   const loadData = async () => {
-    // Prevenir múltiples llamadas simultáneas
     if (isLoading) {
       console.log("Ya hay una carga en progreso, saltando...")
       return
     }
 
-    // Verificar que el componente sigue montado
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    // Verificar que se hayan seleccionado filtros específicos
     if (!monthFilter || !yearFilter || monthFilter === "all" || yearFilter === "all") {
       console.log("No se han seleccionado filtros específicos, no cargando datos")
       return
@@ -140,51 +117,29 @@ export default function NominaPage() {
 
     try {
       setIsLoading(true)
-      setHasSearched(true) // Marcar que se ha realizado una búsqueda
+      setHasSearched(true)
 
-      // Construir parámetros de consulta basados en los filtros
       const params = new URLSearchParams()
-
-      // Siempre agregar mes y año ya que se requieren
       params.append("month", monthFilter)
       params.append("year", yearFilter)
 
       console.log("Cargando nóminas con filtros específicos:", { monthFilter, yearFilter })
 
-      // Cargar nóminas con filtros aplicados
       const payrollUrl = `/api/payroll?${params.toString()}`
       console.log("🌐 URL de consulta:", payrollUrl)
 
-      // Verificar estado de la sesión antes de hacer la consulta
-      const sessionResult = await sessionManager.getSession()
-      console.log("📋 Estado de sesión antes de consulta:", {
-        success: sessionResult.success,
-        hasSession: !!sessionResult.session,
-        userEmail: sessionResult.session?.user.email
-      })
-
-      // Obtener el token de la sesión si está disponible
-      let headers: HeadersInit = {
-        'Cache-Control': 'no-cache',
-        'Content-Type': 'application/json'
-      }
-
-      // Intentar agregar el token de autorización si está disponible
-      if (sessionResult.session?.access_token) {
-        headers['Authorization'] = `Bearer ${sessionResult.session.access_token}`
-        console.log("📋 Agregando token de autorización a la consulta")
-      }
-
       const payrollResponse = await fetch(payrollUrl, {
         method: 'GET',
-        headers,
-        credentials: 'include' // Asegurar que las cookies se envíen
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
       })
 
       console.log("📡 Respuesta recibida:", {
         status: payrollResponse.status,
-        statusText: payrollResponse.statusText,
-        headers: Object.fromEntries(payrollResponse.headers.entries())
+        statusText: payrollResponse.statusText
       })
 
       if (payrollResponse.ok) {
@@ -201,7 +156,6 @@ export default function NominaPage() {
         }
 
         console.error("❌ Error en respuesta de nóminas:", payrollResponse.status, errorDetails)
-        console.error("Response headers:", Object.fromEntries(payrollResponse.headers.entries()))
 
         if (payrollResponse.status === 401) {
           console.log("🔄 Error de autenticación detectado")
@@ -216,7 +170,6 @@ export default function NominaPage() {
           setPayrolls([])
           setLiquidations([])
           
-          // Redirigir a login solo una vez y con replace
           setTimeout(() => {
             router.replace("/login")
           }, 2000)
@@ -231,7 +184,7 @@ export default function NominaPage() {
         }
       }
 
-      // Cargar liquidaciones solo si las nóminas se cargaron correctamente
+      // Cargar liquidaciones
       if (payrollResponse.ok) {
         const liquidationResponse = await fetch("/api/payroll/liquidation", {
           headers: {
@@ -356,8 +309,6 @@ export default function NominaPage() {
   const handleGenerateLiquidations = async () => {
     setIsGeneratingLiquidations(true)
     try {
-      // Aquí iría la llamada a la API para generar liquidaciones
-      // Por ahora simularemos la funcionalidad
       await new Promise(resolve => setTimeout(resolve, 2000))
 
       toast({
@@ -450,7 +401,6 @@ export default function NominaPage() {
 
   // Filtrar datos
   const filteredPayrolls = payrolls.filter(payroll => {
-    // Verificar que el payroll tenga las propiedades necesarias
     if (!payroll) return false
 
     const payrollMonth = payroll.month || (payroll.period ? parseInt(payroll.period.split('-')[1]) : null)
@@ -487,7 +437,6 @@ export default function NominaPage() {
     )
   }
 
-  // Solo mostrar acceso denegado si estamos seguros de que no hay sesión
   if (sessionStatus === "invalid") {
     return (
       <DashboardLayout>

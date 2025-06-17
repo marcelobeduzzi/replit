@@ -1,5 +1,5 @@
-// hooks/useAuth.ts
-import { useState, useEffect } from 'react'
+
+import { useState, useEffect, useRef } from 'react'
 import { sessionManager } from '@/lib/session-manager'
 import { User } from '@supabase/supabase-js'
 
@@ -7,17 +7,23 @@ export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const initializationRef = useRef(false)
 
   // Calcular sessionStatus basado en el estado actual
   const sessionStatus = isLoading ? "loading" : (user ? "valid" : "invalid")
 
   useEffect(() => {
+    // Prevenir múltiples inicializaciones
+    if (initializationRef.current) return
+    initializationRef.current = true
+
     const loadUser = async () => {
       try {
         setIsLoading(true)
         const currentUser = await sessionManager.getUser()
         console.log("useAuth - Usuario cargado:", currentUser ? currentUser.email : "null")
         setUser(currentUser)
+        setError(null)
       } catch (err: any) {
         console.error('Error al cargar usuario:', err)
         setError(err.message)
@@ -29,21 +35,26 @@ export function useAuth() {
 
     loadUser()
 
-    // Verificación muy reducida para mejorar performance
+    // Verificación muy reducida para evitar loops
     const interval = setInterval(async () => {
       try {
         const currentUser = await sessionManager.getUser()
-        if (JSON.stringify(currentUser) !== JSON.stringify(user)) {
+        // Solo actualizar si hay un cambio real
+        if (currentUser?.id !== user?.id) {
           setUser(currentUser)
         }
       } catch (err) {
         console.error('Error al verificar usuario:', err)
-        setUser(null)
+        if (user !== null) {
+          setUser(null)
+        }
       }
-    }, 300000) // Cada 5 minutos para reducir carga
+    }, 60000) // Reducir a cada minuto
 
-    return () => clearInterval(interval)
-  }, [])
+    return () => {
+      clearInterval(interval)
+    }
+  }, []) // Remover user de las dependencias para evitar loops
 
   const login = async (email: string, password: string) => {
     setIsLoading(true)
@@ -57,7 +68,7 @@ export function useAuth() {
         return { success: false, error: result.error }
       }
 
-      setUser(result.user)
+      setUser(result.user || null)
       return { success: true, data: { user: result.user } }
     } catch (err: any) {
       console.error('Error en login:', err)
@@ -76,6 +87,7 @@ export function useAuth() {
 
       if (result.success) {
         setUser(null)
+        setError(null)
       } else {
         setError(result.error || 'Error al cerrar sesión')
       }
@@ -108,7 +120,7 @@ export function useAuth() {
   return {
     user,
     isLoading,
-    sessionStatus, // Agregar sessionStatus al return
+    sessionStatus,
     isAuthenticated: !!user,
     error,
     login,
