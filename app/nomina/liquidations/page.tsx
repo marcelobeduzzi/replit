@@ -208,7 +208,7 @@ export default function LiquidationsPage() {
 
       // Recargar liquidaciones para que se genere una nueva
       await loadLiquidations()
-      
+
       setRegenerateResult({ success: true, message: "Liquidación marcada para regeneración" })
       setRegenerateDialogOpen(false)
     } catch (error) {
@@ -404,12 +404,17 @@ export default function LiquidationsPage() {
                             />
                           </TableCell>
                           <TableCell>
-                            {liquidation.employees?.first_name} {liquidation.employees?.last_name}
-                            {liquidation.version > 1 && (
-                              <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded">
-                                v{liquidation.version}
+                            <div className="flex items-center gap-2">
+                              {liquidation.employees?.first_name} {liquidation.employees?.last_name}
+                              <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                                LIQUIDACIÓN
                               </span>
-                            )}
+                              {liquidation.version > 1 && (
+                                <span className="text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded">
+                                  v{liquidation.version}
+                                </span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
                             {liquidation.termination_date
@@ -486,12 +491,17 @@ export default function LiquidationsPage() {
                       {paidLiquidations.map((liquidation) => (
                         <TableRow key={liquidation.id}>
                           <TableCell>
-                            {liquidation.employees?.first_name} {liquidation.employees?.last_name}
-                            {liquidation.version > 1 && (
-                              <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded">
-                                v{liquidation.version}
+                            <div className="flex items-center gap-2">
+                              {liquidation.employees?.first_name} {liquidation.employees?.last_name}
+                              <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                                LIQUIDACIÓN
                               </span>
-                            )}
+                              {liquidation.version > 1 && (
+                                <span className="text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded">
+                                  v{liquidation.version}
+                                </span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
                             {liquidation.termination_date

@@ -39,6 +39,7 @@ interface Payroll {
   is_paid_bank: boolean
   created_at: string
   updated_at: string
+  type: "nomina" | "liquidacion"
 }
 
 export default function NominaPage() {
@@ -50,7 +51,10 @@ export default function NominaPage() {
   const [payrolls, setPayrolls] = useState<Payroll[]>([])
   const [allPayrollsStats, setAllPayrollsStats] = useState<any>(null) // Para estadísticas globales
   const [loadingPayrolls, setLoadingPayrolls] = useState(false)
+  const [totalRecords, setTotalRecords] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [liquidations, setLiquidations] = useState<any[]>([])
+  const [typeFilter, setTypeFilter] = useState<"all" | "nomina" | "liquidacion">("all")
 
   // Filtros
   const [monthFilter, setMonthFilter] = useState("all")
@@ -67,7 +71,6 @@ export default function NominaPage() {
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1)
-  const [totalRecords, setTotalRecords] = useState(0)
   const recordsPerPage = 20
   const totalPages = Math.ceil(totalRecords / recordsPerPage)
   const hasNext = currentPage < totalPages
@@ -80,10 +83,10 @@ export default function NominaPage() {
 
   // Recargar cuando cambien los filtros
   useEffect(() => {
-    if (monthFilter !== "all" || yearFilter !== "all" || statusFilter !== "all") {
+    if (monthFilter !== "all" || yearFilter !== "all" || statusFilter !== "all" || typeFilter !== "all") {
       loadPayrolls(1)
     }
-  }, [monthFilter, yearFilter, statusFilter])
+  }, [monthFilter, yearFilter, statusFilter, typeFilter])
 
   // Función para cargar estadísticas globales (sin paginación)
   const loadGlobalStats = async () => {
@@ -137,6 +140,7 @@ export default function NominaPage() {
       if (monthFilter && monthFilter !== 'all') params.append('month', monthFilter)
       if (yearFilter && yearFilter !== 'all') params.append('year', yearFilter)
       if (statusFilter !== 'all') params.append('status', statusFilter)
+       if (typeFilter !== 'all') params.append('type', typeFilter)
       params.append('page', page.toString())
       params.append('limit', recordsPerPage.toString())
 
@@ -340,8 +344,9 @@ export default function NominaPage() {
       const statusMatch = statusFilter === "all" || 
         (statusFilter === "paid" && payroll.is_paid) ||
         (statusFilter === "pending" && !payroll.is_paid)
+      const typeMatch = typeFilter === "all" || payroll.type === typeFilter
 
-      return monthMatch && yearMatch && statusMatch
+      return monthMatch && yearMatch && statusMatch && typeMatch
     })
 
     // Filtrar según la pestaña activa
@@ -427,7 +432,7 @@ export default function NominaPage() {
                 <td>Salario Bancario</td>
                 <td>$${payroll.bank_salary.toLocaleString()}</td>
               </tr>` : ''}
-              
+
               <tr class="total-row">
                 <td><strong>TOTAL NETO</strong></td>
                 <td><strong>$${payroll.total_salary?.toLocaleString() || '0'}</strong></td>
@@ -677,6 +682,19 @@ export default function NominaPage() {
                     <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="pending">Pendientes</SelectItem>
                     <SelectItem value="paid">Pagados</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+               <div>
+                <label className="text-sm font-medium mb-2 block">Tipo</label>
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los tipos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="nomina">Nómina</SelectItem>
+                    <SelectItem value="liquidacion">Liquidación</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
