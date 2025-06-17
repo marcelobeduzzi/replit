@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -11,13 +10,6 @@ import { Badge } from "@/components/ui/badge"
 import { AlertTriangle, FileText, Calendar, DollarSign, Users, CheckCircle, Clock, AlertCircle } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { createBrowserClient } from '@supabase/ssr'
-
-// Configuración de Supabase
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
 
 // Tipos de datos para payroll
 interface Employee {
@@ -52,8 +44,7 @@ export default function NominaPage() {
   const router = useRouter()
 
   // Estados principales
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [payrolls, setPayrolls] = useState<Payroll[]>([])
   const [loadingPayrolls, setLoadingPayrolls] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -63,47 +54,10 @@ export default function NominaPage() {
   const [yearFilter, setYearFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
 
-  // Verificar autenticación UNA SOLA VEZ al montar el componente
+  // Cargar datos inmediatamente sin verificación de autenticación
   useEffect(() => {
-    let isMounted = true
-
-    const checkAuthAndLoad = async () => {
-      try {
-        console.log("Nóminas - Verificando autenticación...")
-        
-        const { data: { user }, error } = await supabase.auth.getUser()
-        
-        if (!isMounted) return
-
-        if (error || !user) {
-          console.log("Nóminas - No hay usuario autenticado, redirigiendo...")
-          router.replace("/login")
-          return
-        }
-
-        console.log("Nóminas - Usuario autenticado:", user.email)
-        setUser(user)
-        setLoading(false)
-        
-        // Cargar datos inmediatamente después de autenticar
-        if (isMounted) {
-          loadPayrolls()
-        }
-        
-      } catch (error) {
-        console.error("Nóminas - Error verificando autenticación:", error)
-        if (isMounted) {
-          router.replace("/login")
-        }
-      }
-    }
-
-    checkAuthAndLoad()
-
-    return () => {
-      isMounted = false
-    }
-  }, []) // Sin dependencias adicionales para evitar bucles
+    loadPayrolls()
+  }, [])
 
   const loadPayrolls = async () => {
     try {
@@ -112,43 +66,19 @@ export default function NominaPage() {
 
       console.log("Nóminas - Cargando datos de payroll...")
 
-      // Obtener datos directamente de Supabase
-      let query = supabase
-        .from("payroll")
-        .select(`
-          *,
-          employees!inner(
-            id,
-            first_name,
-            last_name,
-            position,
-            department,
-            hand_salary,
-            bank_salary,
-            base_salary
-          )
-        `)
-        .order("created_at", { ascending: false })
+      // Usar la API endpoint en lugar de Supabase directo
+      const params = new URLSearchParams()
+      if (monthFilter) params.append('month', monthFilter)
+      if (yearFilter) params.append('year', yearFilter)
+      if (statusFilter !== 'all') params.append('status', statusFilter)
 
-      // Aplicar filtros si existen
-      if (monthFilter) {
-        query = query.eq("month", parseInt(monthFilter))
-      }
-      if (yearFilter) {
-        query = query.eq("year", parseInt(yearFilter))
-      }
-      if (statusFilter === "paid") {
-        query = query.eq("is_paid", true)
-      } else if (statusFilter === "pending") {
-        query = query.eq("is_paid", false)
+      const response = await fetch(`/api/payroll?${params.toString()}`)
+
+      if (!response.ok) {
+        throw new Error(`Error del servidor: ${response.status}`)
       }
 
-      const { data, error } = await query
-
-      if (error) {
-        console.error("Nóminas - Error cargando payrolls:", error)
-        throw new Error(`Error de base de datos: ${error.message}`)
-      }
+      const data = await response.json()
 
       console.log(`Nóminas - Payrolls cargados: ${data?.length || 0}`)
       setPayrolls(data || [])
@@ -171,25 +101,6 @@ export default function NominaPage() {
 
     return monthMatch && yearMatch && statusMatch
   })
-
-  // Mostrar loading mientras se verifica autenticación
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-screen">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-            <p className="mt-4">Verificando acceso...</p>
-          </div>
-        </div>
-      </DashboardLayout>
-    )
-  }
-
-  // Si no hay usuario, el useEffect ya manejó la redirección
-  if (!user) {
-    return null
-  }
 
   return (
     <DashboardLayout>
