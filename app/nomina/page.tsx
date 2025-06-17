@@ -89,7 +89,7 @@ export default function NominaPage() {
   const loadGlobalStats = async () => {
     try {
       console.log("Cargando estadísticas globales...")
-      
+
       const params = new URLSearchParams()
       if (monthFilter && monthFilter !== 'all') params.append('month', monthFilter)
       if (yearFilter && yearFilter !== 'all') params.append('year', yearFilter)
@@ -151,7 +151,7 @@ export default function NominaPage() {
       if (!response.ok) {
         const errorData = await response.text()
         console.error("Nóminas - Error en respuesta:", response.status, errorData)
-        
+
         if (response.status === 401) {
           setError("Sin autorización - Por favor inicie sesión nuevamente")
           // No lanzar error aquí para evitar redirects automáticos
@@ -164,11 +164,11 @@ export default function NominaPage() {
 
       console.log("Nóminas - Respuesta completa del servidor:", data)
       console.log(`Nóminas - Payrolls cargados: ${data?.payrolls?.length || 0}`)
-      
+
       if (data?.payrolls) {
         setPayrolls(data.payrolls)
         setTotalRecords(data.totalRecords || 0)
-        
+
         // Si es la primera página, también cargar estadísticas globales
         if (page === 1) {
           loadGlobalStats()
@@ -313,10 +313,10 @@ export default function NominaPage() {
           title: "Éxito",
           description: `Pago confirmado correctamente`,
         })
-        
+
         // Recargar datos para reflejar los cambios
         await loadPayrolls(currentPage)
-        
+
         // También recargar estadísticas globales
         await loadGlobalStats()
       } else {
@@ -367,6 +367,115 @@ export default function NominaPage() {
     paid: payrolls.filter(p => p.is_paid).length,
     totalToPay: payrolls.filter(p => !p.is_paid).reduce((sum, p) => sum + (p.total_salary || 0), 0),
     totalPaid: payrolls.filter(p => p.is_paid).reduce((sum, p) => sum + (p.total_salary || 0), 0)
+  }
+
+  const exportPayrollToPDF = (payroll: any) => {
+    // Crear contenido HTML para el PDF
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Recibo de Sueldo - ${payroll.employees?.first_name} ${payroll.employees?.last_name}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+          .employee-info { margin-bottom: 20px; }
+          .salary-details { margin-bottom: 20px; }
+          .table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          .table th, .table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          .table th { background-color: #f2f2f2; }
+          .total-row { font-weight: bold; background-color: #f9f9f9; }
+          .payment-info { margin-top: 20px; }
+          .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>RECIBO DE SUELDO</h1>
+          <p>Período: ${getMonthName(payroll.month)} ${payroll.year}</p>
+        </div>
+
+        <div class="employee-info">
+          <h3>Datos del Empleado</h3>
+          <p><strong>Nombre:</strong> ${payroll.employees?.first_name} ${payroll.employees?.last_name}</p>
+          <p><strong>Cargo:</strong> ${payroll.employees?.position || 'No especificado'}</p>
+          <p><strong>Sucursal:</strong> ${payroll.employee?.local || 'No especificado'}</p>
+        </div>
+
+        <div class="salary-details">
+          <h3>Detalle de Liquidación</h3>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Concepto</th>
+                <th>Importe</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Salario Base</td>
+                <td>$${payroll.employees?.base_salary?.toLocaleString() || '0'}</td>
+              </tr>
+              ${payroll.hand_salary > 0 ? `
+              <tr>
+                <td>Salario en Mano</td>
+                <td>$${payroll.hand_salary.toLocaleString()}</td>
+              </tr>` : ''}
+              ${payroll.bank_salary > 0 ? `
+              <tr>
+                <td>Salario Bancario</td>
+                <td>$${payroll.bank_salary.toLocaleString()}</td>
+              </tr>` : ''}
+              
+              <tr class="total-row">
+                <td><strong>TOTAL NETO</strong></td>
+                <td><strong>$${payroll.total_salary?.toLocaleString() || '0'}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="payment-info">
+          <h3>Información de Pago</h3>
+          ${payroll.is_paid_hand ? `<p><strong>Pago en Mano:</strong> ${format(new Date(payroll.created_at), "dd/MM/yyyy")}</p>` : ''}
+          ${payroll.is_paid_bank ? `<p><strong>Pago Bancario:</strong> ${format(new Date(payroll.updated_at), "dd/MM/yyyy")}</p>` : ''}
+        </div>
+
+        <div class="footer">
+          <p>Recibo generado el ${format(new Date(), "dd/MM/yyyy")} | Sistema de Gestión de Nóminas</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Crear ventana para imprimir
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+
+      // Esperar a que cargue y luego imprimir
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    }
+  }
+
+  const getMonthName = (month: number) => {
+    const monthNames = [
+      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ]
+    return monthNames[month - 1] || "Mes Inválido"
+  }
+
+  const formatCurrency = (amount: number) => {
+    return amount.toLocaleString('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      minimumFractionDigits: 2,
+    })
   }
 
   return (
@@ -716,7 +825,7 @@ export default function NominaPage() {
                         </div>
                       </div>
                     ))}
-                    
+
                     {/* Paginación al final de los resultados */}
                     {totalRecords > recordsPerPage && (
                       <Card className="mt-4">
@@ -751,8 +860,7 @@ export default function NominaPage() {
                       </Card>
                     )}
                   </div>
-                )}
-              </TabsContent>
+                )}              </TabsContent>
 
               <TabsContent value="pending" className="space-y-4">
                 <div className="space-y-4">
@@ -820,7 +928,7 @@ export default function NominaPage() {
                       </div>
                     </div>
                   ))}
-                  
+
                   {/* Paginación en pendientes */}
                   {totalRecords > recordsPerPage && (
                     <Card className="mt-4">
@@ -911,7 +1019,7 @@ export default function NominaPage() {
                       </div>
                     </div>
                   ))}
-                  
+
                   {/* Paginación en pagados */}
                   {totalRecords > recordsPerPage && (
                     <Card className="mt-4">

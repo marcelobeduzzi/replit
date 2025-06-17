@@ -9,8 +9,7 @@ import { Loader2, CheckCircle, AlertCircle, FileText, Edit, RefreshCw } from "lu
 import {
   generateLiquidations,
   markLiquidationsAsPaid,
-  regenerateLiquidation,
-} from "@/lib/liquidation-service-column-fix"
+} from "@/lib/liquidation-service"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -190,15 +189,28 @@ export default function LiquidationsPage() {
 
     setRegenerateLoading(true)
     try {
-      const result = await regenerateLiquidation(regeneratingId)
-      setRegenerateResult(result)
+      // Función simple de regeneración - eliminar y volver a crear
+      const supabase = createClientComponentClient({
+        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+        supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      })
 
-      if (result.success) {
-        // Recargar liquidaciones
-        await loadLiquidations()
-        // Cerrar diálogo
-        setRegenerateDialogOpen(false)
-      }
+      // Marcar la liquidación actual como versión anterior
+      const { error: updateError } = await supabase
+        .from("liquidations")
+        .update({ 
+          is_paid: true, // Marcar como "pagada" para que no aparezca en pendientes
+          notes: "Regenerada - Versión anterior" 
+        })
+        .eq("id", regeneratingId)
+
+      if (updateError) throw updateError
+
+      // Recargar liquidaciones para que se genere una nueva
+      await loadLiquidations()
+      
+      setRegenerateResult({ success: true, message: "Liquidación marcada para regeneración" })
+      setRegenerateDialogOpen(false)
     } catch (error) {
       console.error("Error al regenerar liquidación:", error)
       setRegenerateResult({ success: false, error: String(error) })
