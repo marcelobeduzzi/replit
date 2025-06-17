@@ -57,11 +57,8 @@ export default function LiquidationsPage() {
   const loadLiquidations = async () => {
     setLoadingLiquidations(true)
     try {
-      // Crear el cliente con las claves explícitas solo para esta función
-      const supabase = createClientComponentClient({
-        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-        supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      })
+      // Crear el cliente Supabase
+      const supabase = createClientComponentClient()
 
       // Cargar liquidaciones pendientes
       const { data: pending, error: pendingError } = await supabase
@@ -138,6 +135,11 @@ export default function LiquidationsPage() {
       console.log("Resultado de generación:", result)
       
       if (!response.ok) {
+        console.error("Error en respuesta:", response.status, result)
+        // Intentar mostrar un mensaje más específico
+        if (response.status === 401) {
+          throw new Error("Error de autenticación. Por favor, recarga la página e intenta nuevamente.")
+        }
         throw new Error(result.error || `Error HTTP: ${response.status}`)
       }
       
@@ -217,10 +219,7 @@ export default function LiquidationsPage() {
     setRegenerateLoading(true)
     try {
       // Función simple de regeneración - eliminar y volver a crear
-      const supabase = createClientComponentClient({
-        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-        supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      })
+      const supabase = createClientComponentClient()
 
       // Marcar la liquidación actual como versión anterior
       const { error: updateError } = await supabase
