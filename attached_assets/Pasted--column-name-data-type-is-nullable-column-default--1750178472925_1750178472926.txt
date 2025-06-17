@@ -1,0 +1,26 @@
+| column_name      | data_type                | is_nullable | column_default     |
+| ---------------- | ------------------------ | ----------- | ------------------ |
+| id               | uuid                     | NO          | uuid_generate_v4() |
+| first_name       | character varying        | NO          | null               |
+| last_name        | character varying        | NO          | null               |
+| document_id      | character varying        | NO          | null               |
+| document_type    | character varying        | NO          | null               |
+| phone            | character varying        | NO          | null               |
+| email            | character varying        | NO          | null               |
+| address          | text                     | NO          | null               |
+| birth_date       | date                     | NO          | null               |
+| hire_date        | date                     | NO          | null               |
+| termination_date | date                     | YES         | null               |
+| position         | character varying        | NO          | null               |
+| local            | character varying        | NO          | null               |
+| work_shift       | character varying        | NO          | null               |
+| base_salary      | numeric                  | NO          | null               |
+| bank_salary      | numeric                  | NO          | null               |
+| total_salary     | numeric                  | NO          | null               |
+| status           | character varying        | NO          | null               |
+| role             | character varying        | NO          | null               |
+| worked_days      | integer                  | YES         | null               |
+| created_at       | timestamp with time zone | YES         | CURRENT_TIMESTAMP  |
+| updated_at       | timestamp with time zone | YES         | CURRENT_TIMESTAMP  |
+| custom_check_in  | time without time zone   | YES         | null               |
+| custom_check_out | time without time zone   | YES         | null               |

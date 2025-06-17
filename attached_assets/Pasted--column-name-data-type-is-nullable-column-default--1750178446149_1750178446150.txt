@@ -1,0 +1,29 @@
+| column_name               | data_type                | is_nullable | column_default     |
+| ------------------------- | ------------------------ | ----------- | ------------------ |
+| id                        | uuid                     | NO          | uuid_generate_v4() |
+| employee_id               | uuid                     | NO          | null               |
+| termination_date          | date                     | NO          | null               |
+| worked_days               | integer                  | NO          | null               |
+| worked_months             | integer                  | NO          | null               |
+| base_salary               | numeric                  | NO          | null               |
+| proportional_vacation     | numeric                  | NO          | null               |
+| proportional_bonus        | numeric                  | NO          | null               |
+| compensation_amount       | numeric                  | NO          | null               |
+| total_amount              | numeric                  | NO          | null               |
+| is_paid                   | boolean                  | NO          | false              |
+| payment_date              | date                     | YES         | null               |
+| payment_method            | character varying        | YES         | null               |
+| payment_reference         | character varying        | YES         | null               |
+| notes                     | text                     | YES         | null               |
+| created_at                | timestamp with time zone | YES         | now()              |
+| updated_at                | timestamp with time zone | YES         | now()              |
+| include_vacation          | boolean                  | YES         | true               |
+| include_bonus             | boolean                  | YES         | true               |
+| days_to_pay_in_last_month | integer                  | YES         | null               |
+| version                   | integer                  | YES         | 1                  |
+| previous_version_id       | uuid                     | YES         | null               |
+| edit_reason               | text                     | YES         | null               |
+| edited_by                 | text                     | YES         | null               |
+| edited_at                 | timestamp with time zone | YES         | null               |
+| regenerated_at            | timestamp with time zone | YES         | null               |
+| regenerated_by            | text                     | YES         | null               |
