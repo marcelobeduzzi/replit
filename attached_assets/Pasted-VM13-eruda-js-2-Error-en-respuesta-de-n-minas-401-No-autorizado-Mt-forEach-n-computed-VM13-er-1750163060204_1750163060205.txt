@@ -1,0 +1,158 @@
+VM13 eruda.js:2 ❌ Error en respuesta de nóminas: 401 No autorizado
+Mt.forEach.n.<computed> @ VM13 eruda.js:2
+VM13 eruda.js:2 Response headers: Object
+Mt.forEach.n.<computed> @ VM13 eruda.js:2
+VM13 eruda.js:2 🔄 Error de autenticación detectado - Intentando refrescar sesión...
+VM13 eruda.js:2 Usuario local antes del refresco: mbeduzzi@gmail.com
+VM13 eruda.js:2 [Fast Refresh] done in 857ms
+VM13 eruda.js:2 [Fast Refresh] rebuilding
+VM13 eruda.js:2 ./app/api/auth/validate-session/route.ts
+Module parse failed: Identifier 'NextResponse' has already been declared (45:9)
+|     }
+| }
+> import { NextResponse } from "next/server";
+| import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+| import { cookies } from "next/headers";
+
+Import trace for requested module:
+./app/api/auth/validate-session/route.ts
+Mt.forEach.n.<computed> @ VM13 eruda.js:2
+VM13 eruda.js:2 [Fast Refresh] rebuilding
+VM13 eruda.js:2 ./app/api/auth/validate-session/route.ts
+Module parse failed: Identifier 'NextResponse' has already been declared (45:9)
+|     }
+| }
+> import { NextResponse } from "next/server";
+| import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+| import { cookies } from "next/headers";
+
+Import trace for requested module:
+./app/api/auth/validate-session/route.ts
+Mt.forEach.n.<computed> @ VM13 eruda.js:2
+VM13 eruda.js:2 [Fast Refresh] done in 316ms
+VM13 eruda.js:2 [Fast Refresh] done in 748ms
+VM13 eruda.js:2 [Fast Refresh] done in 4086ms
+VM13 eruda.js:2 [Fast Refresh] done in 7822ms
+2VM13 eruda.js:2 ./app/api/auth/validate-session/route.ts
+Module parse failed: Identifier 'NextResponse' has already been declared (45:9)
+|     }
+| }
+> import { NextResponse } from "next/server";
+| import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+| import { cookies } from "next/headers";
+
+Import trace for requested module:
+./app/api/auth/validate-session/route.ts
+Mt.forEach.n.<computed> @ VM13 eruda.js:2
+error @ VM62 intercept-console-error.js:50
+handleErrors @ VM334 hot-reloader-client.js:198
+processMessage @ VM334 hot-reloader-client.js:264
+handler @ VM334 hot-reloader-client.js:525
+58a62295-699a-44c1-9c6b-bac992b8e7bc-00-31juxxdvs93id.janeway.replit.dev/api/auth/validate-session:1 
+            
+            
+           Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+VM13 eruda.js:2 Respuesta del refresco: 500
+58a62295-699a-44c1-9c6b-bac992b8e7bc-00-31juxxdvs93id.janeway.replit.dev/_next/static/webpack/5dc841172c8ed8df.webpack.hot-update.json:1 
+            
+            
+           Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+VM13 eruda.js:2 [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree.
+Mt.forEach.n.<computed> @ VM13 eruda.js:2
+handleApplyUpdates @ VM334 hot-reloader-client.js:145
+eval @ VM334 hot-reloader-client.js:181
+VM13 eruda.js:2 ❌ Error al refrescar: 500 <!DOCTYPE html><html><head><meta charSet="utf-8" data-next-head=""/><meta name="viewport" content="width=device-width" data-next-head=""/><style data-next-hide-fouc="true">body{display:none}</style><noscript data-next-hide-fouc="true"><style>body{display:block}</style></noscript><noscript data-n-css=""></noscript><script defer="" noModule="" src="/_next/static/chunks/polyfills.js"></script><script src="/_next/static/chunks/fallback/webpack.js" defer=""></script><script src="/_next/static/chunks/fallback/main.js" defer=""></script><script src="/_next/static/chunks/fallback/pages/_app.js" defer=""></script><script src="/_next/static/chunks/fallback/pages/_error.js" defer=""></script><noscript id="__next_css__DO_NOT_USE__"></noscript></head><body><div id="__next"></div><script src="/_next/static/chunks/fallback/react-refresh.js"></script><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"statusCode":500,"hostname":"localhost"}},"page":"/_error","query":{},"buildId":"development","isFallback":false,"err":{"name":"ModuleParseError","source":"server","message":"Module parse failed: Identifier 'NextResponse' has already been declared (45:9)\nFile was processed with these loaders:\n * ./node_modules/next/dist/build/webpack/loaders/next-flight-loader/index.js\n * ./node_modules/next/dist/build/webpack/loaders/next-swc-loader.js\nYou may need an additional loader to handle the result of these loaders.\n|     }\n| }\n\u003e import { NextResponse } from \"next/server\";\n| import { createRouteHandlerClient } from \"@supabase/auth-helpers-nextjs\";\n| import { cookies } from \"next/headers\";","stack":"ModuleParseError: Module parse failed: Identifier 'NextResponse' has already been declared (45:9)\nFile was processed with these loaders:\n * ./node_modules/next/dist/build/webpack/loaders/next-flight-loader/index.js\n * ./node_modules/next/dist/build/webpack/loaders/next-swc-loader.js\nYou may need an additional loader to handle the result of these loaders.\n|     }\n| }\n\u003e import { NextResponse } from \"next/server\";\n| import { createRouteHandlerClient } from \"@supabase/auth-helpers-nextjs\";\n| import { cookies } from \"next/headers\";\n    at handleParseError (/home/runner/workspace/node_modules/next/dist/compiled/webpack/bundle5.js:29:410403)\n    at /home/runner/workspace/node_modules/next/dist/compiled/webpack/bundle5.js:29:412019\n    at processResult (/home/runner/workspace/node_modules/next/dist/compiled/webpack/bundle5.js:29:407884)\n    at /home/runner/workspace/node_modules/next/dist/compiled/webpack/bundle5.js:29:408906\n    at /home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:8727\n    at iterateNormalLoaders (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:5565)\n    at iterateNormalLoaders (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:5650)\n    at /home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:5879\n    at r.callback (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:4039)\n    at Object.transformSource (/home/runner/workspace/node_modules/next/dist/build/webpack/loaders/next-flight-loader/index.js:151:10)\n    at LOADER_EXECUTION (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:4134)\n    at runSyncOrAsync (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:4145)\n    at iterateNormalLoaders (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:5782)\n    at /home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:5142\n    at r.callback (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:4039)\n    at /home/runner/workspace/node_modules/next/dist/build/webpack/loaders/next-swc-loader.js:207:23"},"gip":true,"scriptLoader":[]}</script></body></html>
+Mt.forEach.n.<computed> @ VM13 eruda.js:2
+error @ VM62 intercept-console-error.js:50
+loadData @ VM1097 page.tsx:215
+VM13 eruda.js:2 
+            
+            
+           GET https://58a62295-699a-44c1-9c6b-bac992b8e7bc-00-31juxxdvs93id.janeway.replit.dev/nomina?_rsc=er6u0 500 (Internal Server Error)
+window.fetch @ VM13 eruda.js:2
+createFetch @ VM104 fetch-server-response.js:163
+fetchServerResponse @ VM104 fetch-server-response.js:98
+hmrRefreshReducerImpl @ VM171 hmr-refresh-reducer.js:33
+clientReducer @ VM102 router-reducer.js:41
+action @ VM101 action-queue.js:141
+runAction @ VM101 action-queue.js:51
+dispatchAction @ VM101 action-queue.js:105
+dispatch @ VM101 action-queue.js:139
+eval @ VM134 use-reducer.js:40
+startTransition @ VM80 react-dom-client.development.js:6249
+eval @ VM134 use-reducer.js:39
+eval @ VM132 app-router.js:262
+exports.startTransition @ VM52 react.development.js:1129
+hmrRefresh @ VM132 app-router.js:261
+processMessage @ VM334 hot-reloader-client.js:363
+handler @ VM334 hot-reloader-client.js:525
+VM334 hot-reloader-client.js:132 
+            
+            
+           GET https://58a62295-699a-44c1-9c6b-bac992b8e7bc-00-31juxxdvs93id.janeway.replit.dev/nomina 500 (Internal Server Error)
+performFullReload @ VM334 hot-reloader-client.js:132
+handleApplyUpdates @ VM334 hot-reloader-client.js:149
+eval @ VM334 hot-reloader-client.js:181
+index.js:644 Uncaught ModuleParseError: Module parse failed: Identifier 'NextResponse' has already been declared (45:9)
+File was processed with these loaders:
+ * ./node_modules/next/dist/build/webpack/loaders/next-flight-loader/index.js
+ * ./node_modules/next/dist/build/webpack/loaders/next-swc-loader.js
+You may need an additional loader to handle the result of these loaders.
+|     }
+| }
+> import { NextResponse } from "next/server";
+| import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+| import { cookies } from "next/headers";
+    at <unknown> (58a62295-699a-44c1-9c6b-bac992b8e7bc-00-31juxxdvs93id.janeway.replit.dev/__replco/File was processed with these loaders:)
+    at handleParseError (/home/runner/workspace/node_modules/next/dist/compiled/webpack/bundle5.js:29:410403)
+    at <unknown> (/home/runner/workspace/node_modules/next/dist/compiled/webpack/bundle5.js:29:412019)
+    at processResult (/home/runner/workspace/node_modules/next/dist/compiled/webpack/bundle5.js:29:407884)
+    at <unknown> (/home/runner/workspace/node_modules/next/dist/compiled/webpack/bundle5.js:29:408906)
+    at <unknown> (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:8727)
+    at iterateNormalLoaders (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:5565)
+    at iterateNormalLoaders (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:5650)
+    at <unknown> (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:5879)
+    at r.callback (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:4039)
+    at Object.transformSource (/home/runner/workspace/node_modules/next/dist/build/webpack/loaders/next-flight-loader/index.js:151:10)
+    at LOADER_EXECUTION (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:4134)
+    at runSyncOrAsync (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:4145)
+    at iterateNormalLoaders (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:5782)
+    at <unknown> (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:5142)
+    at r.callback (/home/runner/workspace/node_modules/next/dist/compiled/loader-runner/LoaderRunner.js:1:4039)
+    at <unknown> (/home/runner/workspace/node_modules/next/dist/build/webpack/loaders/next-swc-loader.js:207:23)
+getServerError @ node-stack-frames.js:49
+eval @ index.js:644
+setTimeout
+hydrate @ index.js:622
+await in hydrate
+pageBootstrap @ page-bootstrap.js:28
+eval @ next-dev.js:24
+Promise.then
+eval @ next-dev.js:22
+(pages-dir-browser)/./node_modules/next/dist/client/next-dev.js @ main.js:1447
+options.factory @ webpack.js:675
+__webpack_require__ @ webpack.js:37
+__webpack_exec__ @ main.js:2593
+(anonymous) @ main.js:2594
+webpackJsonpCallback @ webpack.js:1351
+(anonymous) @ main.js:9
+workspace_iframe.html?initialPath=%2F&id=%3Ar1t2%3A:142 
+            
+            
+           GET https://replit.com/public/js/beacon.js net::ERR_BLOCKED_BY_CLIENT
+onIframeLoad @ workspace_iframe.html?initialPath=%2F&id=%3Ar1t2%3A:142
+Console.js:61 [HMR] connected
+Console.js:61 ./app/api/auth/validate-session/route.ts
+Module parse failed: Identifier 'NextResponse' has already been declared (45:9)
+|     }
+| }
+> import { NextResponse } from "next/server";
+| import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+| import { cookies } from "next/headers";
