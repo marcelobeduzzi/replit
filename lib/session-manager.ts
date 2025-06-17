@@ -14,12 +14,12 @@ class SessionManager {
   private currentSession: Session | null = null
   private initialized: boolean = false
   private userMetadata: any = null
-  
+
   private constructor() {
     // Inicializar solo en el cliente
     if (typeof window !== 'undefined') {
       this.initSession()
-      
+
       // Configurar listener de eventos de autenticación con menos logs
       supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_IN') {
@@ -43,22 +43,22 @@ class SessionManager {
       })
     }
   }
-  
+
   public static getInstance(): SessionManager {
     if (!SessionManager.instance) {
       SessionManager.instance = new SessionManager()
     }
     return SessionManager.instance
   }
-  
+
   private async initSession() {
     if (this.initialized) return
-    
+
     try {
       console.log('Inicializando gestor de sesiones...')
       const { data } = await supabase.auth.getSession()
       this.currentSession = data.session
-      
+
       if (data.session) {
         console.log(`Sesión existente encontrada para ${data.session.user.email}`)
         this.scheduleTokenRefresh(data.session)
@@ -66,22 +66,22 @@ class SessionManager {
       } else {
         console.log('No hay sesión activa')
       }
-      
+
       this.initialized = true
     } catch (error) {
       console.error('Error al inicializar sesión:', error)
     }
   }
-  
+
   private async loadUserMetadata(userId: string) {
     try {
       console.log(`Cargando metadatos para usuario ${userId}`)
-      
+
       // Usar la función RPC segura en lugar de consultar directamente la tabla users
       try {
         const { data, error } = await supabase
           .rpc('get_user_metadata_safe', { user_id: userId });
-        
+
         if (error) {
           console.error('Error al cargar metadatos de usuario:', error)
           // Si hay error, creamos metadatos básicos con rol admin
@@ -91,7 +91,7 @@ class SessionManager {
           }
           return
         }
-        
+
         if (data) {
           console.log('Metadatos de usuario cargados:', data)
           this.userMetadata = data
@@ -105,7 +105,7 @@ class SessionManager {
         }
       } catch (error) {
         console.error('Error al cargar metadatos de usuario:', error)
-        
+
         // Intento alternativo: cargar desde employees
         try {
           const { data: employeeData, error: employeeError } = await supabase
@@ -113,7 +113,7 @@ class SessionManager {
             .select('id, first_name, last_name, email, local, position, role')
             .eq('id', userId)
             .single();
-            
+
           if (!employeeError && employeeData) {
             console.log("Metadatos cargados desde tabla employees");
             this.userMetadata = {
@@ -125,7 +125,7 @@ class SessionManager {
         } catch (err) {
           console.error("Error al cargar desde employees:", err);
         }
-        
+
         // Si todo falla, creamos metadatos básicos con rol admin
         this.userMetadata = {
           id: userId,
@@ -141,48 +141,48 @@ class SessionManager {
       }
     }
   }
-  
+
   private scheduleTokenRefresh(session: Session | null) {
     // Limpiar timeout existente
     this.clearRefreshTimeout()
-    
+
     if (!session) return
-    
+
     // Calcular tiempo hasta el próximo refresh
     const expiresAt = session.expires_at
     if (!expiresAt) return
-    
+
     const expiresAtMs = expiresAt * 1000
     const now = Date.now()
     const timeUntilExpiry = expiresAtMs - now
-    
+
     // Usar un margen de 10 minutos por defecto si no hay configuración
     const refreshMarginMs = 10 * 60 * 1000 // 10 minutos
     const refreshTime = Math.max(timeUntilExpiry - refreshMarginMs, 0)
-    
+
     // Si ya estamos dentro del margen de refresco, refrescar inmediatamente
     if (refreshTime <= 0) {
       console.log('Token cerca de expirar, refrescando inmediatamente...')
       this.refreshToken()
       return
     }
-    
+
     console.log(`Programando refresco de token en ${Math.floor(refreshTime / 60000)} minutos`)
-    
+
     this.refreshTimeout = setTimeout(() => {
       this.refreshToken()
     }, refreshTime)
   }
-  
+
   private async refreshToken() {
     console.log('Refrescando token...')
     try {
       const { data, error } = await supabase.auth.refreshSession()
-      
+
       if (error) {
         console.error('Error al refrescar token:', error)
         this.refreshAttempts++
-        
+
         if (this.refreshAttempts >= supabaseConfig.session.maxRefreshAttempts) {
           console.error(`Máximo de intentos de refresco (${supabaseConfig.session.maxRefreshAttempts}) alcanzado. Forzando logout.`)
           this.logout()
@@ -201,7 +201,7 @@ class SessionManager {
     } catch (error) {
       console.error('Excepción durante el refresco de token:', error)
       this.refreshAttempts++
-      
+
       if (this.refreshAttempts >= supabaseConfig.session.maxRefreshAttempts) {
         console.error(`Máximo de intentos de refresco alcanzado. Forzando logout.`)
         this.logout()
@@ -211,7 +211,7 @@ class SessionManager {
       }
     }
   }
-  
+
   private scheduleRetry(seconds: number) {
     this.clearRefreshTimeout()
     console.log(`Programando reintento de refresco en ${seconds} segundos`)
@@ -219,84 +219,95 @@ class SessionManager {
       this.refreshToken()
     }, seconds * 1000)
   }
-  
+
   private clearRefreshTimeout() {
     if (this.refreshTimeout) {
       clearTimeout(this.refreshTimeout)
       this.refreshTimeout = null
     }
   }
-  
+
   // Métodos públicos
-  public async getSession(): Promise<{ success: boolean, session: Session | null, error?: string }> {
+  async getSession(): Promise<{ success: boolean, session: Session | null, error?: string }> {
     try {
-      if (!this.initialized) {
-        await this.initSession()
-      }
-      
-      if (!this.currentSession) {
-        // Intentar obtener la sesión actual de Supabase
-        const { data, error } = await supabase.auth.getSession()
-        
-        if (error) {
-          return { success: false, session: null, error: error.message }
+      // Primero intentar obtener la sesión
+      const { data: { session }, error } = await supabase.auth.getSession()
+
+      if (error) {
+        console.error('Error obteniendo sesión:', error)
+        // Intentar obtener usuario como fallback
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        if (user && !userError) {
+          console.log('Usuario encontrado via getUser(), recreando sesión...')
+          return { success: true, session: { user, access_token: null, refresh_token: null }, error: null }
         }
-        
-        this.currentSession = data.session
-        
-        if (this.currentSession) {
-          this.scheduleTokenRefresh(this.currentSession)
-          await this.loadUserMetadata(this.currentSession.user.id)
-        }
+        return { success: false, session: null, error: error.message }
       }
-      
-      return { success: true, session: this.currentSession }
+
+      if (!session) {
+        console.log('No hay sesión activa, verificando usuario...')
+        // Intentar obtener usuario directamente
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        if (user && !userError) {
+          console.log('Usuario encontrado sin sesión activa:', user.email)
+          return { success: true, session: { user, access_token: null, refresh_token: null }, error: null }
+        }
+        return { success: false, session: null, error: 'No hay sesión activa' }
+      }
+
+      // Verificar si la sesión está expirada
+      if (session.expires_at && session.expires_at * 1000 < Date.now()) {
+        console.log('Sesión expirada, intentando refrescar...')
+        return await this.refreshSession()
+      }
+
+      return { success: true, session, error: null }
     } catch (error: any) {
-      console.error('Error al obtener sesión:', error)
+      console.error('Error en getSession:', error)
       return { success: false, session: null, error: error.message }
     }
   }
-  
+
   public async refreshSession(): Promise<{ success: boolean, error?: string }> {
     try {
       const { data, error } = await supabase.auth.refreshSession()
-      
+
       if (error) {
         console.error('Error al refrescar sesión:', error)
         return { success: false, error: error.message }
       }
-      
+
       this.currentSession = data.session
-      
+
       if (this.currentSession) {
         this.scheduleTokenRefresh(this.currentSession)
       }
-      
+
       return { success: true }
     } catch (error: any) {
       console.error('Error al refrescar sesión:', error)
       return { success: false, error: error.message }
     }
   }
-  
+
   public async getUser(): Promise<User | null> {
     const sessionResult = await this.getSession()
     return sessionResult.session?.user || null
   }
-  
+
   public async getUserWithMetadata(): Promise<any> {
     const user = await this.getUser()
-    
+
     if (!user) return null
-    
+
     // Si no tenemos metadatos, intentar cargarlos
     if (!this.userMetadata) {
       await this.loadUserMetadata(user.id)
     }
-    
+
     // Asegurarnos de que el usuario tenga un rol (admin por defecto)
     const metadata = this.userMetadata || { role: 'admin' }
-    
+
     // Combinar usuario con metadatos
     return {
       ...user,
@@ -304,7 +315,7 @@ class SessionManager {
       role: metadata.role || 'admin' // Asegurar que siempre haya un rol
     }
   }
-  
+
   public async login(email: string, password: string): Promise<{ success: boolean, user?: User, error?: string }> {
     try {
       console.log(`Intentando iniciar sesión con: ${email}`)
@@ -312,35 +323,35 @@ class SessionManager {
         email,
         password
       })
-      
+
       if (error) {
         console.error('Error durante el login:', error)
         return { success: false, error: error.message }
       }
-      
+
       console.log('Login exitoso:', data)
       this.currentSession = data.session
       this.refreshAttempts = 0
       this.scheduleTokenRefresh(data.session)
       await this.loadUserMetadata(data.user.id)
-      
+
       return { success: true, user: data.user }
     } catch (error: any) {
       console.error('Excepción durante el login:', error)
       return { success: false, error: error.message }
     }
   }
-  
+
   public async logout(): Promise<{ success: boolean, error?: string }> {
     this.clearRefreshTimeout()
     try {
       const { error } = await supabase.auth.signOut()
-      
+
       if (error) {
         console.error('Error durante el logout:', error)
         return { success: false, error: error.message }
       }
-      
+
       this.currentSession = null
       this.userMetadata = null
       console.log('Logout exitoso')
@@ -350,11 +361,11 @@ class SessionManager {
       return { success: false, error: error.message }
     }
   }
-  
+
   public isAuthenticated(): boolean {
     return !!this.currentSession
   }
-  
+
   public getUserMetadata(): any {
     return this.userMetadata || { role: 'admin' }
   }

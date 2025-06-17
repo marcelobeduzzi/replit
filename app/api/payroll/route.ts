@@ -6,36 +6,65 @@ export async function GET(request: Request) {
   try {
     console.log("=== INICIO API PAYROLL DEBUG ===")
     console.log("Request URL:", request.url)
-    console.log("Request headers:", Object.fromEntries(request.headers.entries()))
-
+    
+    // Obtener cookies y verificar que existan
     const cookieStore = await cookies()
-    console.log("Cookies obtenidas del store")
+    const allCookies = cookieStore.getAll()
+    console.log("Cookies disponibles:", allCookies.length)
+    console.log("Cookies de auth encontradas:", allCookies.filter(c => 
+      c.name.includes('supabase') || c.name.includes('auth') || c.name.includes('session')
+    ).map(c => ({ name: c.name, hasValue: !!c.value })))
 
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-    console.log("Cliente Supabase creado")
 
-    // Verificación de autenticación con más detalles
-    console.log("Verificando usuario...")
-    console.log("Cookies disponibles:", cookieStore.getAll().map(c => ({ name: c.name, value: c.value.substring(0, 50) + '...' })))
+    // Intentar múltiples métodos de verificación
+    console.log("🔍 Verificando autenticación...")
     
+    // Método 1: getUser()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
-    
-    console.log("Resultado de auth.getUser():")
-    console.log("- User:", user ? { id: user.id, email: user.email } : null)
-    console.log("- Error:", userError)
-    console.log("- Error type:", userError?.name)
-    console.log("- Error message:", userError?.message)
+    console.log("getUser() result:", { 
+      hasUser: !!user, 
+      userEmail: user?.email,
+      errorType: userError?.name,
+      errorMessage: userError?.message 
+    })
 
-    if (userError || !user) {
+    // Método 2: getSession()
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    console.log("getSession() result:", { 
+      hasSession: !!session, 
+      sessionUser: session?.user?.email,
+      errorType: sessionError?.name 
+    })
+
+    // Verificar si hay alguna forma válida de autenticación
+    const validUser = user || session?.user
+    const hasValidAuth = validUser && !userError && !sessionError
+
+    if (!hasValidAuth) {
       console.log("❌ AUTENTICACIÓN FALLIDA")
-      console.log("- Error completo:", JSON.stringify(userError, null, 2))
-      console.log("- Usuario:", user)
-      console.log("- Headers recibidos:", {
-        authorization: request.headers.get('authorization')?.substring(0, 50) + '...',
-        cookie: request.headers.get('cookie')?.substring(0, 100) + '...',
-        'user-agent': request.headers.get('user-agent')
+      console.log("- Cookies totales:", allCookies.length)
+      console.log("- Headers importantes:", {
+        cookie: request.headers.get('cookie') ? 'Present' : 'Missing',
+        authorization: request.headers.get('authorization') ? 'Present' : 'Missing',
+        'user-agent': request.headers.get('user-agent')?.substring(0, 50)
       })
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+
+      // Intentar una última verificación con refresh
+      try {
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+        if (refreshData.session && refreshData.user) {
+          console.log("✅ Autenticación exitosa después de refresh")
+          // Continuar con el resto de la lógica
+        } else {
+          return NextResponse.json({ error: "No autorizado - Sin sesión válida" }, { status: 401 })
+        }
+      } catch (refreshErr) {
+        console.log("❌ Error en refresh final:", refreshErr)
+        return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+      }
+    } else {
+      console.log("✅ Usuario autenticado:", validUser.email)
     }
 
     console.log("✅ Usuario autenticado:", user.email)

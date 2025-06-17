@@ -148,12 +148,21 @@ export default function NominaPage() {
         userEmail: sessionResult.session?.user.email
       })
 
+      // Obtener el token de la sesión si está disponible
+      let headers: HeadersInit = {
+        'Cache-Control': 'no-cache',
+        'Content-Type': 'application/json'
+      }
+
+      // Intentar agregar el token de autorización si está disponible
+      if (sessionResult.session?.access_token) {
+        headers['Authorization'] = `Bearer ${sessionResult.session.access_token}`
+        console.log("📋 Agregando token de autorización a la consulta")
+      }
+
       const payrollResponse = await fetch(payrollUrl, {
         method: 'GET',
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Content-Type': 'application/json'
-        },
+        headers,
         credentials: 'include' // Asegurar que las cookies se envíen
       })
 
