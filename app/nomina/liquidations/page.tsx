@@ -120,10 +120,10 @@ export default function LiquidationsPage() {
   const handleGenerateLiquidations = async () => {
     setLoading(true)
     setResult(null) // Limpiar resultados anteriores
-    
+
     try {
       console.log("Iniciando generación de liquidaciones automática...")
-      
+
       const response = await fetch('/api/payroll/liquidation/generate', {
         method: 'POST',
         headers: {
@@ -133,7 +133,7 @@ export default function LiquidationsPage() {
 
       const result = await response.json()
       console.log("Resultado de generación:", result)
-      
+
       if (!response.ok) {
         console.error("Error en respuesta:", response.status, result)
         // Intentar mostrar un mensaje más específico
@@ -142,13 +142,13 @@ export default function LiquidationsPage() {
         }
         throw new Error(result.error || `Error HTTP: ${response.status}`)
       }
-      
+
       setResult(result)
 
       if (result.success) {
         // Recargar liquidaciones siempre después de la generación
         await loadLiquidations()
-        
+
         // Mostrar mensaje de éxito más claro
         if (result.generated === 0 && result.skipped > 0) {
           setResult({
@@ -213,35 +213,47 @@ export default function LiquidationsPage() {
     router.push(`/nomina/liquidations/edit/${liquidationId}`)
   }
 
-  const handleRegenerateLiquidation = async () => {
-    if (!regeneratingId) return
-
-    setRegenerateLoading(true)
+  const handleRegenerateLiquidation = async (liquidationId: string) => {
     try {
-      // Función simple de regeneración - eliminar y volver a crear
-      const supabase = createClientComponentClient()
+      setLoading(true)
 
-      // Marcar la liquidación actual como versión anterior
-      const { error: updateError } = await supabase
-        .from("liquidations")
-        .update({ 
-          is_paid: true, // Marcar como "pagada" para que no aparezca en pendientes
-          notes: "Regenerada - Versión anterior" 
+      console.log(`Regenerando liquidación: ${liquidationId}`)
+
+      const response = await fetch(`/api/payroll/liquidation/regenerate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ liquidationId }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Error al regenerar liquidación')
+      }
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast({
+          title: "Liquidación regenerada",
+          description: "Los cálculos han sido actualizados correctamente",
         })
-        .eq("id", regeneratingId)
 
-      if (updateError) throw updateError
-
-      // Recargar liquidaciones para que se genere una nueva
-      await loadLiquidations()
-
-      setRegenerateResult({ success: true, message: "Liquidación marcada para regeneración" })
-      setRegenerateDialogOpen(false)
+        // Recargar los datos inmediatamente
+        await loadLiquidations()
+      } else {
+        throw new Error(result.error || 'Error desconocido')
+      }
     } catch (error) {
-      console.error("Error al regenerar liquidación:", error)
-      setRegenerateResult({ success: false, error: String(error) })
+      console.error('Error regenerating liquidation:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "No se pudo regenerar la liquidación",
+        variant: "destructive",
+      })
     } finally {
-      setRegenerateLoading(false)
+      setLoading(false)
     }
   }
 
