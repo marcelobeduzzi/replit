@@ -27,7 +27,13 @@ export async function GET(request: NextRequest) {
       {
         auth: {
           persistSession: false,
-          autoRefreshToken: false
+          autoRefreshToken: false,
+          detectSessionInUrl: false
+        },
+        global: {
+          headers: {
+            'x-my-custom-header': 'payroll-api'
+          }
         }
       }
     )
@@ -125,7 +131,8 @@ export async function GET(request: NextRequest) {
     const totalPages = Math.ceil((count || 0) / limit)
     
     return NextResponse.json({
-      data: formattedPayrolls,
+      payrolls: formattedPayrolls,
+      totalRecords: count || 0,
       pagination: {
         page,
         limit,

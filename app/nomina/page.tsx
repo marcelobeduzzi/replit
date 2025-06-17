@@ -77,6 +77,13 @@ export default function NominaPage() {
     loadPayrolls()
   }, [])
 
+  // Recargar cuando cambien los filtros
+  useEffect(() => {
+    if (monthFilter !== "all" || yearFilter !== "all" || statusFilter !== "all") {
+      loadPayrolls(1)
+    }
+  }, [monthFilter, yearFilter, statusFilter])
+
   const loadPayrolls = async (page: number = 1) => {
     try {
       setLoadingPayrolls(true)
@@ -102,17 +109,30 @@ export default function NominaPage() {
       })
 
       if (!response.ok) {
+        const errorData = await response.text()
+        console.error("Nóminas - Error en respuesta:", response.status, errorData)
+        
         if (response.status === 401) {
-          throw new Error("Sin autorización - Por favor inicie sesión nuevamente")
+          setError("Sin autorización - Por favor inicie sesión nuevamente")
+          // No lanzar error aquí para evitar redirects automáticos
+          return
         }
-        throw new Error(`Error del servidor: ${response.status}`)
+        throw new Error(`Error del servidor: ${response.status} - ${errorData}`)
       }
 
       const data = await response.json()
 
+      console.log("Nóminas - Respuesta completa del servidor:", data)
       console.log(`Nóminas - Payrolls cargados: ${data?.payrolls?.length || 0}`)
-      setPayrolls(data?.payrolls || [])
-      setTotalRecords(data?.totalRecords || 0)
+      
+      if (data?.payrolls) {
+        setPayrolls(data.payrolls)
+        setTotalRecords(data.totalRecords || 0)
+      } else {
+        console.error("Nóminas - No se encontraron payrolls en la respuesta:", data)
+        setPayrolls([])
+        setTotalRecords(0)
+      }
 
     } catch (error: any) {
       console.error("Nóminas - Error cargando nóminas:", error)
@@ -489,7 +509,7 @@ export default function NominaPage() {
 
               <div className="flex items-end">
                 <Button onClick={() => loadPayrolls(1)} disabled={loadingPayrolls}>
-                  {loadingPayrolls ? "Cargando..." : "Actualizar"}
+                  {loadingPayrolls ? "Cargando..." : "Aplicar Filtros"}
                 </Button>
               </div>
             </div>
