@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -7,9 +8,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle, FileText, Calendar, DollarSign, Users, CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { AlertTriangle, FileText, Calendar, DollarSign, Users, CheckCircle, Clock, AlertCircle, Plus, RefreshCw } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
+import { useToast } from "@/components/ui/use-toast"
 
 // Tipos de datos para payroll
 interface Employee {
@@ -42,6 +44,7 @@ interface Payroll {
 
 export default function NominaPage() {
   const router = useRouter()
+  const { toast } = useToast()
 
   // Estados principales
   const [loading, setLoading] = useState(false)
@@ -54,7 +57,12 @@ export default function NominaPage() {
   const [yearFilter, setYearFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
 
-  // Cargar datos inmediatamente sin verificación de autenticación
+  // Estados para generación
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [generatingPayroll, setGeneratingPayroll] = useState(false)
+
+  // Cargar datos al iniciar
   useEffect(() => {
     loadPayrolls()
   }, [])
@@ -66,15 +74,19 @@ export default function NominaPage() {
 
       console.log("Nóminas - Cargando datos de payroll...")
 
-      // Usar la API endpoint en lugar de Supabase directo
-      const params = new URLSearchParams()
-      if (monthFilter && monthFilter !== 'all') params.append('month', monthFilter)
-      if (yearFilter && yearFilter !== 'all') params.append('year', yearFilter)
-      if (statusFilter !== 'all') params.append('status', statusFilter)
-
-      const response = await fetch(`/api/payroll?${params.toString()}`)
+      // Usar la API endpoint directa sin filtros inicialmente
+      const response = await fetch("/api/payroll", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include", // Importante para las cookies de sesión
+      })
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Sin autorización - Por favor inicie sesión nuevamente")
+        }
         throw new Error(`Error del servidor: ${response.status}`)
       }
 
@@ -91,10 +103,99 @@ export default function NominaPage() {
     }
   }
 
+  // Función para generar nóminas
+  const handleGeneratePayroll = async () => {
+    try {
+      setGeneratingPayroll(true)
+      console.log(`Generando nóminas para ${selectedMonth}/${selectedYear}`)
+
+      const response = await fetch("/api/payroll/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          month: selectedMonth,
+          year: selectedYear,
+          action: "generate"
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        toast({
+          title: "Éxito",
+          description: `Nóminas generadas correctamente: ${data.generated || 0} empleados`,
+        })
+        await loadPayrolls() // Recargar datos
+      } else {
+        throw new Error(data.error || "Error al generar nóminas")
+      }
+    } catch (error: any) {
+      console.error("Error generando nóminas:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Error al generar nóminas",
+        variant: "destructive",
+      })
+    } finally {
+      setGeneratingPayroll(false)
+    }
+  }
+
+  // Función para regenerar nóminas
+  const handleRegeneratePayroll = async () => {
+    try {
+      setGeneratingPayroll(true)
+      console.log(`Regenerando nóminas para ${selectedMonth}/${selectedYear}`)
+
+      const response = await fetch("/api/payroll/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          month: selectedMonth,
+          year: selectedYear,
+          action: "regenerate"
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        toast({
+          title: "Éxito",
+          description: `Nóminas regeneradas correctamente: ${data.generated || 0} empleados`,
+        })
+        await loadPayrolls() // Recargar datos
+      } else {
+        throw new Error(data.error || "Error al regenerar nóminas")
+      }
+    } catch (error: any) {
+      console.error("Error regenerando nóminas:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Error al regenerar nóminas",
+        variant: "destructive",
+      })
+    } finally {
+      setGeneratingPayroll(false)
+    }
+  }
+
+  // Función para generar liquidaciones
+  const handleGenerateLiquidations = () => {
+    router.push("/nomina/liquidations/create")
+  }
+
   // Filtrar nóminas
   const filteredPayrolls = payrolls.filter((payroll) => {
-    const monthMatch = monthFilter === "all" || !monthFilter || payroll.month.toString() === monthFilter
-    const yearMatch = yearFilter === "all" || !yearFilter || payroll.year.toString() === yearFilter
+    const monthMatch = monthFilter === "all" || payroll.month.toString() === monthFilter
+    const yearMatch = yearFilter === "all" || payroll.year.toString() === yearFilter
     const statusMatch = statusFilter === "all" || 
       (statusFilter === "paid" && payroll.is_paid) ||
       (statusFilter === "pending" && !payroll.is_paid)
@@ -113,6 +214,88 @@ export default function NominaPage() {
             </p>
           </div>
         </div>
+
+        {/* Panel de acciones principales */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Acciones de Nómina</CardTitle>
+            <CardDescription>
+              Generar nóminas y liquidaciones para períodos específicos
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Mes</label>
+                <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <SelectItem key={i + 1} value={(i + 1).toString()}>
+                        {format(new Date(2024, i, 1), "MMMM", { locale: es })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">Año</label>
+                <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2024">2024</SelectItem>
+                    <SelectItem value="2025">2025</SelectItem>
+                    <SelectItem value="2026">2026</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={handleGeneratePayroll}
+                disabled={generatingPayroll}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                {generatingPayroll ? "Generando..." : "Generar Nóminas"}
+              </Button>
+
+              <Button
+                onClick={handleRegeneratePayroll}
+                disabled={generatingPayroll}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                {generatingPayroll ? "Regenerando..." : "Regenerar Nóminas"}
+              </Button>
+
+              <Button
+                onClick={handleGenerateLiquidations}
+                variant="secondary"
+                className="flex items-center gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                Generar Liquidaciones
+              </Button>
+
+              <Button
+                onClick={() => router.push("/nomina/liquidations")}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Calendar className="h-4 w-4" />
+                Ver Liquidaciones
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Panel de resumen */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
@@ -232,6 +415,14 @@ export default function NominaPage() {
               <div className="flex items-center">
                 <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
                 <span className="text-red-700">{error}</span>
+                <Button 
+                  onClick={loadPayrolls} 
+                  variant="outline" 
+                  size="sm" 
+                  className="ml-4"
+                >
+                  Reintentar
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -255,9 +446,14 @@ export default function NominaPage() {
               <div className="text-center py-8">
                 <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500">No hay nóminas para mostrar</p>
-                <Button onClick={loadPayrolls} className="mt-4">
-                  Cargar Nóminas
-                </Button>
+                <div className="mt-4 space-y-2">
+                  <Button onClick={loadPayrolls}>
+                    Cargar Nóminas
+                  </Button>
+                  <p className="text-sm text-gray-400">
+                    O genera nuevas nóminas usando los botones de arriba
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="space-y-4">
