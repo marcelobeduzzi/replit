@@ -80,6 +80,34 @@ class SessionManager {
       return { success: false, error: error.message }
     }
   }
+
+  public async getSession(): Promise<{ session: any; user: User | null; error?: string }> {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession()
+
+      if (error) {
+        return { session: null, user: null, error: error.message }
+      }
+
+      if (!session || !session.user) {
+        return { session: null, user: null }
+      }
+
+      const userData: User = {
+        id: session.user.id,
+        email: session.user.email || '',
+        name: session.user.email?.split('@')[0] || '',
+        role: 'admin',
+        isActive: true,
+        createdAt: session.user.created_at || new Date().toISOString(),
+        updatedAt: session.user.updated_at || new Date().toISOString()
+      }
+
+      return { session, user: userData }
+    } catch (error: any) {
+      return { session: null, user: null, error: error.message }
+    }
+  }
 }
 
 export const sessionManager = new SessionManager()

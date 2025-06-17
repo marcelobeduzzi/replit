@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   try {
     console.log("=== INICIO API PAYROLL DEBUG ===")
     console.log("Request URL:", request.url)
-    
+
     // Obtener cookies y verificar que existan
     const cookieStore = await cookies()
     const allCookies = cookieStore.getAll()
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
     // Intentar múltiples métodos de verificación
     console.log("🔍 Verificando autenticación...")
-    
+
     // Método 1: getUser()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     console.log("getUser() result:", { 
@@ -67,13 +67,13 @@ export async function GET(request: Request) {
       console.log("✅ Usuario autenticado:", validUser.email)
     }
 
-    console.log("✅ Usuario autenticado:", user.email)
-
-    // Verificar la sesión actual también
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-    console.log("Sesión actual:")
-    console.log("- Session:", sessionData.session ? "Existe" : "No existe")
-    console.log("- Error:", sessionError)
+    console.log("✅ Usuario autenticado:", user.email);
+        // Verificar la sesión actual también
+        const { data: sessionData, error: currentSessionError } = await supabase.auth.getSession();
+    console.log("Sesión actual:");
+        console.log("- Session:", sessionData.session ? "Existe" : "No existe");
+        console.log("- User:", sessionData.session?.user?.email || "No user");
+        console.log("- Error:", currentSessionError?.message || "No error");
 
     // Obtener parámetros de consulta
     const url = new URL(request.url)
@@ -156,7 +156,7 @@ export async function GET(request: Request) {
     }
 
     console.log(`Nóminas encontradas con filtros aplicados: ${payrolls?.length || 0}`)
-    
+
     if (payrolls && payrolls.length > 0) {
       console.log("Muestra de datos encontrados:", payrolls[0])
     }

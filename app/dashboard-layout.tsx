@@ -141,9 +141,13 @@ function DashboardLayout({
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        // Usar el sessionManager para refrescar la sesión
-        await sessionManager.getSession()
-        console.log("Session refreshed")
+        // Usar el sessionManager para verificar la sesión
+        const result = await sessionManager.getSession()
+        if (result.session) {
+          console.log("Session refreshed")
+        } else {
+          console.log("No session found")
+        }
 
         // También llamar al refreshSession del contexto para mantener compatibilidad
         if (refreshSession) {
