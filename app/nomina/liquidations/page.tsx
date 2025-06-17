@@ -215,7 +215,7 @@ export default function LiquidationsPage() {
 
   const handleRegenerateLiquidation = async (liquidationId: string) => {
     try {
-      setLoading(true)
+      setRegenerateLoading(true)
 
       console.log(`Regenerando liquidación: ${liquidationId}`)
 
@@ -235,25 +235,30 @@ export default function LiquidationsPage() {
       const result = await response.json()
 
       if (result.success) {
-        toast({
-          title: "Liquidación regenerada",
-          description: "Los cálculos han sido actualizados correctamente",
+        setRegenerateResult({
+          success: true,
+          message: "Los cálculos han sido actualizados correctamente"
         })
 
         // Recargar los datos inmediatamente
         await loadLiquidations()
+        
+        // Cerrar el diálogo después de un breve delay
+        setTimeout(() => {
+          setRegenerateDialogOpen(false)
+          setRegenerateResult(null)
+        }, 2000)
       } else {
         throw new Error(result.error || 'Error desconocido')
       }
     } catch (error) {
       console.error('Error regenerating liquidation:', error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "No se pudo regenerar la liquidación",
-        variant: "destructive",
+      setRegenerateResult({
+        success: false,
+        error: error instanceof Error ? error.message : "No se pudo regenerar la liquidación"
       })
     } finally {
-      setLoading(false)
+      setRegenerateLoading(false)
     }
   }
 
@@ -512,6 +517,7 @@ export default function LiquidationsPage() {
                                 size="icon"
                                 onClick={() => openRegenerateDialog(liquidation.id)}
                                 title="Regenerar liquidación"
+                                disabled={loading || regenerateLoading}
                               >
                                 <RefreshCw className="h-4 w-4" />
                               </Button>
@@ -629,7 +635,7 @@ export default function LiquidationsPage() {
             <Button variant="outline" onClick={() => setRegenerateDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleRegenerateLiquidation} disabled={regenerateLoading}>
+            <Button onClick={() => handleRegenerateLiquidation(regeneratingId!)} disabled={regenerateLoading || !regeneratingId}>
               {regenerateLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
