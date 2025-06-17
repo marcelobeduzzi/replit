@@ -7,7 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Loader2, CheckCircle, AlertCircle, FileText, Edit, RefreshCw } from "lucide-react"
 import {
-  generateLiquidations,
   markLiquidationsAsPaid,
 } from "@/lib/liquidation-service"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -124,7 +123,14 @@ export default function LiquidationsPage() {
   const handleGenerateLiquidations = async () => {
     setLoading(true)
     try {
-      const result = await generateLiquidations()
+      const response = await fetch('/api/payroll/liquidation/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const result = await response.json()
       setResult(result)
 
       if (result.success) {
