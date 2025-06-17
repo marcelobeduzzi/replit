@@ -5,13 +5,15 @@ import { cookies } from "next/headers"
 
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
     // Verificar autenticación
     const {
       data: { session },
     } = await supabase.auth.getSession()
     if (!session) {
+      console.log("No hay sesión activa para generar liquidaciones")
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 

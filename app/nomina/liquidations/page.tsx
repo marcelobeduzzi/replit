@@ -122,6 +122,8 @@ export default function LiquidationsPage() {
 
   const handleGenerateLiquidations = async () => {
     setLoading(true)
+    setResult(null) // Limpiar resultados anteriores
+    
     try {
       console.log("Iniciando generación de liquidaciones automática...")
       
@@ -132,18 +134,28 @@ export default function LiquidationsPage() {
         },
       })
 
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`)
-      }
-
       const result = await response.json()
       console.log("Resultado de generación:", result)
+      
+      if (!response.ok) {
+        throw new Error(result.error || `Error HTTP: ${response.status}`)
+      }
       
       setResult(result)
 
       if (result.success) {
         // Recargar liquidaciones siempre después de la generación
         await loadLiquidations()
+        
+        // Mostrar mensaje de éxito más claro
+        if (result.generated === 0 && result.skipped > 0) {
+          setResult({
+            success: true,
+            generated: result.generated,
+            skipped: result.skipped,
+            message: "No se encontraron empleados elegibles para liquidación o ya tienen liquidaciones generadas."
+          })
+        }
       }
     } catch (error) {
       console.error("Error al generar liquidaciones:", error)
@@ -243,17 +255,29 @@ export default function LiquidationsPage() {
   return (
     <div className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Liquidaciones</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Liquidaciones</h1>
+          <p className="text-muted-foreground">
+            Gestiona las liquidaciones de empleados que han finalizado su relación laboral
+          </p>
+        </div>
         <div className="flex gap-2">
-          <Button onClick={handleGenerateLiquidations} disabled={loading}>
+          <Button onClick={handleGenerateLiquidations} disabled={loading} className="bg-blue-600 hover:bg-blue-700">
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Generando...
               </>
             ) : (
-              "Generar Liquidaciones"
+              "Generar Liquidaciones Automáticas"
             )}
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => router.push("/nomina/liquidations/create")}
+            disabled={loading}
+          >
+            Nueva Liquidación Manual
           </Button>
         </div>
       </div>
@@ -261,11 +285,25 @@ export default function LiquidationsPage() {
       {result && (
         <Alert variant={result.success ? "default" : "destructive"} className="mb-6">
           {result.success ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-          <AlertTitle>{result.success ? "Éxito" : "Error"}</AlertTitle>
+          <AlertTitle>{result.success ? "Proceso Completado" : "Error en la Generación"}</AlertTitle>
           <AlertDescription>
-            {result.success
-              ? `Proceso completado: ${result.generated} generadas, ${result.updated} actualizadas, ${result.skipped} omitidas.`
-              : result.error}
+            {result.success ? (
+              <div className="space-y-1">
+                <p>{result.message || `Se procesaron las liquidaciones automáticamente.`}</p>
+                <p className="text-sm">
+                  <strong>Generadas:</strong> {result.generated} | 
+                  <strong> Actualizadas:</strong> {result.updated || 0} | 
+                  <strong> Omitidas:</strong> {result.skipped || 0}
+                </p>
+                {result.generated > 0 && (
+                  <p className="text-sm font-medium text-green-700">
+                    Las nuevas liquidaciones aparecen en la pestaña "Pendientes" a continuación.
+                  </p>
+                )}
+              </div>
+            ) : (
+              result.error
+            )}
           </AlertDescription>
         </Alert>
       )}
@@ -279,8 +317,10 @@ export default function LiquidationsPage() {
         <TabsContent value="pending">
           <Card>
             <CardHeader>
-              <CardTitle>Liquidaciones Pendientes</CardTitle>
-              <CardDescription>Liquidaciones generadas pendientes de pago</CardDescription>
+              <CardTitle>Liquidaciones Pendientes de Pago</CardTitle>
+              <CardDescription>
+                Liquidaciones de empleados inactivos que han sido calculadas automáticamente y están pendientes de pago
+              </CardDescription>
               {selectedLiquidations.length > 0 && (
                 <div className="flex justify-end">
                   <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
@@ -480,7 +520,9 @@ export default function LiquidationsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Liquidaciones Pagadas</CardTitle>
-              <CardDescription>Historial de liquidaciones pagadas</CardDescription>
+              <CardDescription>
+                Historial completo de liquidaciones que ya han sido abonadas a los empleados
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {loadingLiquidations ? (
