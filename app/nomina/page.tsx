@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -65,15 +64,24 @@ export default function NominaPage() {
   // Estado para tab activa
   const [activeTab, setActiveTab] = useState("overview")
 
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalRecords, setTotalRecords] = useState(0)
+  const recordsPerPage = 20
+  const totalPages = Math.ceil(totalRecords / recordsPerPage)
+  const hasNext = currentPage < totalPages
+  const hasPrev = currentPage > 1
+
   // Cargar datos al iniciar
   useEffect(() => {
     loadPayrolls()
   }, [])
 
-  const loadPayrolls = async () => {
+  const loadPayrolls = async (page: number = 1) => {
     try {
       setLoadingPayrolls(true)
       setError(null)
+      setCurrentPage(page)
 
       console.log("Nóminas - Cargando datos de payroll...")
 
@@ -82,6 +90,8 @@ export default function NominaPage() {
       if (monthFilter && monthFilter !== 'all') params.append('month', monthFilter)
       if (yearFilter && yearFilter !== 'all') params.append('year', yearFilter)
       if (statusFilter !== 'all') params.append('status', statusFilter)
+      params.append('page', page.toString())
+      params.append('limit', recordsPerPage.toString())
 
       const response = await fetch(`/api/payroll?${params.toString()}`, {
         method: "GET",
@@ -100,8 +110,9 @@ export default function NominaPage() {
 
       const data = await response.json()
 
-      console.log(`Nóminas - Payrolls cargados: ${data?.length || 0}`)
-      setPayrolls(data || [])
+      console.log(`Nóminas - Payrolls cargados: ${data?.payrolls?.length || 0}`)
+      setPayrolls(data?.payrolls || [])
+      setTotalRecords(data?.totalRecords || 0)
 
     } catch (error: any) {
       console.error("Nóminas - Error cargando nóminas:", error)
@@ -477,13 +488,47 @@ export default function NominaPage() {
               </div>
 
               <div className="flex items-end">
-                <Button onClick={loadPayrolls} disabled={loadingPayrolls}>
+                <Button onClick={() => loadPayrolls(1)} disabled={loadingPayrolls}>
                   {loadingPayrolls ? "Cargando..." : "Actualizar"}
                 </Button>
               </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* Información de paginación */}
+        {totalRecords > 0 && (
+          <Card className="mb-6">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  Mostrando {((currentPage - 1) * 20) + 1} - {Math.min(currentPage * 20, totalRecords)} de {totalRecords} registros
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => loadPayrolls(currentPage - 1)}
+                    disabled={!hasPrev || loadingPayrolls}
+                  >
+                    Anterior
+                  </Button>
+                  <span className="text-sm">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => loadPayrolls(currentPage + 1)}
+                    disabled={!hasNext || loadingPayrolls}
+                  >
+                    Siguiente
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Mostrar error si existe */}
         {error && (
@@ -493,7 +538,7 @@ export default function NominaPage() {
                 <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
                 <span className="text-red-700">{error}</span>
                 <Button 
-                  onClick={loadPayrolls} 
+                  onClick={() => loadPayrolls(currentPage)} 
                   variant="outline" 
                   size="sm" 
                   className="ml-4"

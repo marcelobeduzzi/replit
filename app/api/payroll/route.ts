@@ -10,51 +10,71 @@ function getMonthName(month: number): string {
 }
 
 export async function GET(request: NextRequest) {
-  console.log("=== INICIO API PAYROLL DEBUG ===")
-  console.log("Request URL:", request.url)
-
   try {
     const { searchParams } = new URL(request.url)
     const month = searchParams.get("month")
     const year = searchParams.get("year")
     const status = searchParams.get("status")
+    const page = parseInt(searchParams.get("page") || "1")
+    const limit = parseInt(searchParams.get("limit") || "20")
 
-    console.log("API Payroll - Parámetros recibidos:", { month, year, status })
+    console.log("API Payroll - Parámetros:", { month, year, status, page, limit })
 
-    // Crear instancia de Supabase para el servidor
+    // Crear instancia de Supabase para el servidor con mejor configuración
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false
+        }
+      }
     )
 
-    console.log("Supabase configurado correctamente para el servidor")
+    // Calcular offset para paginación
+    const from = (page - 1) * limit
+    const to = from + limit - 1
 
-    // Consulta optimizada para obtener nóminas con empleados activos
+    // Consulta optimizada con paginación
     let query = supabase
       .from("payroll")
       .select(`
-        *,
+        id,
+        employee_id,
+        month,
+        year,
+        base_salary,
+        hand_salary,
+        bank_salary,
+        final_hand_salary,
+        total_salary,
+        is_paid,
+        is_paid_hand,
+        is_paid_bank,
+        created_at,
+        updated_at,
+        attendance_bonus,
+        has_attendance_bonus,
         employees!inner (
           id,
           first_name,
           last_name,
           position,
-          base_salary,
           status
         )
-      `)
+      `, { count: "exact" })
       .eq("employees.status", "active")
       .order("created_at", { ascending: false })
+      .range(from, to)
 
-    // Aplicar filtros si existen
+    // Aplicar filtros
     if (month && month !== "all") {
       query = query.eq("month", parseInt(month))
-      console.log(`Filtrando por mes: ${getMonthName(parseInt(month))}`)
     }
 
     if (year && year !== "all") {
       query = query.eq("year", parseInt(year))
-      console.log(`Filtrando por año: ${year}`)
     }
 
     if (status && status !== "all") {
@@ -63,94 +83,58 @@ export async function GET(request: NextRequest) {
       } else if (status === "pending") {
         query = query.eq("is_paid", false)
       }
-      console.log(`Filtrando por estado: ${status}`)
     }
 
-    // Verificar acceso a datos
-    const { data: testData, error: testError, count } = await supabase
-      .from("payroll")
-      .select("id", { count: "exact", head: true })
-
-    if (testError) {
-      console.error("❌ Error de acceso a tabla:", testError)
-    } else {
-      console.log(`✅ Acceso a tabla confirmado. Total registros: ${count || 0}`)
-    }
-
-    console.log("Ejecutando consulta de nóminas...")
-    const { data: payrolls, error } = await query
+    const { data: payrolls, error, count } = await query
 
     if (error) {
       console.error("Error al obtener nóminas:", error)
       return NextResponse.json({ error: "Error al obtener nóminas", details: error.message }, { status: 500 })
     }
 
-    console.log(`Nóminas encontradas: ${payrolls?.length || 0}`)
+    console.log(`Nóminas encontradas: ${payrolls?.length || 0} de ${count || 0} total`)
 
-    if (payrolls && payrolls.length > 0) {
-      console.log("Muestra de datos encontrados:", payrolls[0])
-    }
-
-    // Formatear los datos para el frontend con validación
-    const formattedPayrolls = payrolls.map((payroll: any) => {
-      // Validar que el empleado existe
-      if (!payroll.employees) {
-        console.warn(`Nómina ${payroll.id} sin datos de empleado`)
-        return null
+    // Formatear los datos de manera más eficiente
+    const formattedPayrolls = (payrolls || []).map((payroll: any) => ({
+      id: payroll.id,
+      employee_id: payroll.employee_id,
+      year: payroll.year,
+      month: payroll.month,
+      hand_salary: Number(payroll.hand_salary || 0),
+      bank_salary: Number(payroll.bank_salary || 0),
+      base_salary: Number(payroll.base_salary || 0),
+      final_hand_salary: Number(payroll.final_hand_salary || 0),
+      total_salary: Number(payroll.total_salary || 0),
+      attendance_bonus: Number(payroll.attendance_bonus || 0),
+      has_attendance_bonus: Boolean(payroll.has_attendance_bonus),
+      is_paid: Boolean(payroll.is_paid),
+      is_paid_hand: Boolean(payroll.is_paid_hand),
+      is_paid_bank: Boolean(payroll.is_paid_bank),
+      created_at: payroll.created_at,
+      updated_at: payroll.updated_at,
+      employees: {
+        id: payroll.employees.id,
+        first_name: payroll.employees.first_name || "Sin nombre",
+        last_name: payroll.employees.last_name || "",
+        position: payroll.employees.position || "Sin posición",
+        status: payroll.employees.status || "active"
       }
+    }))
 
-      // Calcular salarios correctamente
-      const handSalary = Number(payroll.hand_salary || payroll.base_salary || 0)
-      const bankSalary = Number(payroll.bank_salary || 0)
-      const deductions = Number(payroll.deductions || 0)
-      const additions = Number(payroll.additions || 0)
-      const attendanceBonus = Number(payroll.attendance_bonus || 0)
-      const hasAttendanceBonus = Boolean(payroll.has_attendance_bonus)
-
-      // Calcular final_hand_salary si es 0
-      let finalHandSalary = Number(payroll.final_hand_salary || 0)
-      if (finalHandSalary === 0) {
-        finalHandSalary = handSalary - deductions + additions
+    // Respuesta con paginación
+    const totalPages = Math.ceil((count || 0) / limit)
+    
+    return NextResponse.json({
+      data: formattedPayrolls,
+      pagination: {
+        page,
+        limit,
+        total: count || 0,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
       }
-
-      // Calcular total_salary si es 0
-      let totalSalary = Number(payroll.total_salary || 0)
-      if (totalSalary === 0) {
-        totalSalary = finalHandSalary + bankSalary + (hasAttendanceBonus ? attendanceBonus : 0)
-      }
-
-      return {
-        id: payroll.id,
-        employee_id: payroll.employee_id,
-        year: payroll.year || new Date().getFullYear(),
-        month: payroll.month || new Date().getMonth() + 1,
-        hand_salary: handSalary,
-        bank_salary: bankSalary,
-        base_salary: Number(payroll.base_salary || 0),
-        deductions: deductions,
-        additions: additions,
-        final_hand_salary: finalHandSalary,
-        total_salary: totalSalary,
-        attendance_bonus: attendanceBonus,
-        has_attendance_bonus: hasAttendanceBonus,
-        is_paid: Boolean(payroll.is_paid),
-        is_paid_hand: Boolean(payroll.is_paid_hand),
-        is_paid_bank: Boolean(payroll.is_paid_bank),
-        created_at: payroll.created_at,
-        updated_at: payroll.updated_at,
-        employees: {
-          id: payroll.employees.id,
-          first_name: payroll.employees.first_name || "Sin nombre",
-          last_name: payroll.employees.last_name || "",
-          position: payroll.employees.position || "Sin posición",
-          base_salary: Number(payroll.employees.base_salary || 0),
-          status: payroll.employees.status || "active"
-        }
-      }
-    }).filter(Boolean) // Remover registros nulos
-
-    console.log("=== FIN API PAYROLL DEBUG ===")
-    return NextResponse.json(formattedPayrolls)
+    })
 
   } catch (error: any) {
     console.error("Error general en API Payroll:", error)
