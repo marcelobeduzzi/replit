@@ -122,33 +122,46 @@ export class LiquidationService extends DatabaseServiceBase {
 
         console.log(`Días a pagar en el último mes: ${daysToPayInLastMonth}`)
 
-        // Obtener último salario
-        const { data: latestPayroll, error: payrollError } = await this.supabase
-          .from("payroll")
-          .select("base_salary")
-          .eq("employee_id", employee.id)
-          .order("year", { ascending: false })
-          .order("month", { ascending: false })
-          .limit(1)
+        // Usar salarios del empleado directamente (base_salary + bank_salary)
+        const baseSalaryFromEmployee = Number(employee.baseSalary) || 0
+        const bankSalaryFromEmployee = Number(employee.bankSalary) || 0
+        const totalEmployeeSalary = baseSalaryFromEmployee + bankSalaryFromEmployee
+        
+        console.log(`Salarios del empleado ${employee.firstName} ${employee.lastName}:`, {
+          baseSalary: baseSalaryFromEmployee,
+          bankSalary: bankSalaryFromEmployee,
+          total: totalEmployeeSalary
+        })
 
-        if (payrollError) {
-          console.error(`Error al obtener salario para empleado ${employee.id}:`, payrollError)
+        // Si no tiene salarios en el empleado, intentar obtener de la última nómina
+        let finalSalary = totalEmployeeSalary
+        if (finalSalary === 0) {
+          const { data: latestPayroll, error: payrollError } = await this.supabase
+            .from("payroll")
+            .select("base_salary, bank_salary")
+            .eq("employee_id", employee.id)
+            .order("year", { ascending: false })
+            .order("month", { ascending: false })
+            .limit(1)
+
+          if (!payrollError && latestPayroll && latestPayroll.length > 0) {
+            const payrollBase = Number(latestPayroll[0].base_salary) || 0
+            const payrollBank = Number(latestPayroll[0].bank_salary) || 0
+            finalSalary = payrollBase + payrollBank
+            console.log(`Usando salario de última nómina: ${finalSalary}`)
+          }
+        }
+
+        if (finalSalary === 0) {
+          console.log(`Empleado ${employee.firstName} ${employee.lastName} no tiene salario definido, omitiendo...`)
           skipped++
           continue
         }
 
-        // Usar salario base de la última nómina o del empleado como fallback
-        let baseSalary = 0
-        if (latestPayroll && latestPayroll.length > 0 && latestPayroll[0].base_salary) {
-          baseSalary = Number(latestPayroll[0].base_salary)
-        } else if (employee.baseSalary) {
-          baseSalary = Number(employee.baseSalary)
-        }
-
-        console.log(`Salario base: ${baseSalary}`)
+        console.log(`Salario final a usar: ${finalSalary}`)
 
         // Valor diario del salario
-        const dailyRate = baseSalary / 30
+        const dailyRate = finalSalary / 30
 
         // Calcular monto a pagar por días trabajados en el último mes
         const lastMonthPayment = dailyRate * daysToPayInLastMonth
@@ -156,7 +169,7 @@ export class LiquidationService extends DatabaseServiceBase {
 
         // Calcular vacaciones proporcionales (siempre calculadas, pero solo se pagan si trabajó más de 20 días)
         // 1 día por mes trabajado
-        const proportionalVacation = (workedMonths % 12) * (baseSalary / 30)
+        const proportionalVacation = (workedMonths % 12) * (finalSalary / 30)
         console.log(`Vacaciones proporcionales: ${proportionalVacation}`)
 
         // Calcular aguinaldo proporcional (siempre calculado, pero solo se paga si trabajó más de 20 días)
@@ -168,7 +181,7 @@ export class LiquidationService extends DatabaseServiceBase {
             ? workedMonths
             : Math.floor((terminationDate.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24 * 30))
 
-        const proportionalBonus = (baseSalary / 12) * (monthsInCurrentYear % 12)
+        const proportionalBonus = (finalSalary / 12) * (monthsInCurrentYear % 12)
         console.log(`Aguinaldo proporcional: ${proportionalBonus}`)
 
         // Determinar si se incluyen vacaciones y aguinaldo por defecto (si trabajó más de 20 días)
@@ -178,15 +191,15 @@ export class LiquidationService extends DatabaseServiceBase {
         // Calcular indemnización (1 mes de salario por año trabajado, si corresponde)
         // Solo si trabajó más de 3 meses y no renunció voluntariamente
         const yearsWorked = Math.floor(workedMonths / 12)
-        const compensationAmount = yearsWorked > 0 ? baseSalary * yearsWorked : 0
-        console.log(`Indemnización: ${compensationAmount}`)
+        const indemnificationAmount = yearsWorked > 0 ? finalSalary * yearsWorked : 0
+        console.log(`Indemnización: ${indemnificationAmount}`)
 
         // Calcular monto total (incluyendo o no vacaciones y aguinaldo según corresponda)
         const totalAmount =
           lastMonthPayment +
           (includeByDefault ? proportionalVacation : 0) +
           (includeByDefault ? proportionalBonus : 0) +
-          compensationAmount
+          indemnificationAmount
 
         console.log(`Monto total: ${totalAmount}`)
 
@@ -196,11 +209,11 @@ export class LiquidationService extends DatabaseServiceBase {
           termination_date: employee.terminationDate,
           worked_days: workedDays,
           worked_months: workedMonths,
-          days_to_pay_in_last_month: daysToPayInLastMonth, // Fixed field name
-          base_salary: baseSalary,
+          days_to_pay_in_last_month: daysToPayInLastMonth,
+          base_salary: finalSalary, // Usar el salario final calculado
           proportional_vacation: proportionalVacation,
           proportional_bonus: proportionalBonus,
-          compensation_amount: lastMonthPayment, // Usar lastMonthPayment en lugar de lastMonthSalary
+          compensation_amount: lastMonthPayment, // Monto por días trabajados en último mes
           total_amount: totalAmount,
           is_paid: false,
           include_vacation: includeByDefault,

@@ -103,13 +103,23 @@ export async function POST(request: Request) {
           daysToPayInLastMonth
         })
 
-        // Calcular montos
-        const baseSalary = Number.parseFloat(employee.salary) || 0
-        const dailySalary = baseSalary / 30
+        // Calcular montos usando las columnas correctas
+        // base_salary + bank_salary = salario total del empleado
+        const baseSalaryFromDB = Number.parseFloat(employee.base_salary) || 0
+        const bankSalaryFromDB = Number.parseFloat(employee.bank_salary) || 0
+        const totalMonthlySalary = baseSalaryFromDB + bankSalaryFromDB
+        
+        console.log(`Salarios del empleado ${employee.first_name} ${employee.last_name}:`, {
+          base_salary: baseSalaryFromDB,
+          bank_salary: bankSalaryFromDB,
+          total: totalMonthlySalary
+        })
+        
+        const dailySalary = totalMonthlySalary / 30
         const lastMonthPayment = dailySalary * daysToPayInLastMonth
 
         // Proporcional de vacaciones (1 día por mes trabajado)
-        const proportionalVacation = (workedMonths % 12) * (baseSalary / 30)
+        const proportionalVacation = (workedMonths % 12) * (totalMonthlySalary / 30)
 
         // Proporcional de aguinaldo (1/12 del salario por mes trabajado en el año actual)
         const currentYear = terminationDate.getFullYear()
@@ -119,7 +129,7 @@ export async function POST(request: Request) {
             ? workedMonths
             : Math.floor((terminationDate.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24 * 30))
 
-        const proportionalBonus = (baseSalary / 12) * (monthsInCurrentYear % 12)
+        const proportionalBonus = (totalMonthlySalary / 12) * (monthsInCurrentYear % 12)
 
         // Incluir por defecto si trabajó más de 20 días
         const includeVacation = workedDays >= 20
@@ -129,13 +139,22 @@ export async function POST(request: Request) {
         const totalAmount =
           lastMonthPayment + (includeVacation ? proportionalVacation : 0) + (includeBonus ? proportionalBonus : 0)
 
+        console.log(`Cálculos finales para ${employee.first_name} ${employee.last_name}:`, {
+          lastMonthPayment,
+          proportionalVacation,
+          proportionalBonus,
+          includeVacation,
+          includeBonus,
+          totalAmount
+        })
+
         // 4. Crear la liquidación
         const liquidationData = {
           employee_id: employee.id,
           termination_date: employee.termination_date,
           worked_days: workedDays,
           worked_months: workedMonths,
-          base_salary: baseSalary,
+          base_salary: totalMonthlySalary, // Usar el salario total (base + banco)
           proportional_vacation: proportionalVacation,
           proportional_bonus: proportionalBonus,
           compensation_amount: lastMonthPayment,
