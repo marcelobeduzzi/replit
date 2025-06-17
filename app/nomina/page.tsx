@@ -277,7 +277,7 @@ export default function NominaPage() {
 
   // Función para generar liquidaciones
   const handleGenerateLiquidations = () => {
-    router.push("/nomina/liquidations/create")
+    router.push("/nomina/liquidations")
   }
 
   // Función para confirmar pagos
