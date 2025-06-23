@@ -48,8 +48,10 @@ export default function VerEmpleadoPage({ params }: { params: { id: string } }) 
       }
     }
 
-    fetchEmployee()
-  }, [id, router, toast])
+    if (id) {
+      fetchEmployee()
+    }
+  }, [id])
 
   if (isLoading) {
     return (
