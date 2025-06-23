@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/app/dashboard-layout"
 import { Button } from "@/components/ui/button"
@@ -12,10 +12,10 @@ import { ArrowLeft, Edit, UserCog } from "lucide-react"
 import Link from "next/link"
 import type { Employee } from "@/types"
 
-export default function VerEmpleadoPage({ params }: { params: { id: string } }) {
+export default function VerEmpleadoPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
   const { toast } = useToast()
-  const { id } = params
+  const { id } = use(params)
 
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [isLoading, setIsLoading] = useState(true)
